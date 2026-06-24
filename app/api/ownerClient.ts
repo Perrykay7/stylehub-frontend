@@ -31,6 +31,7 @@ export type PromoCode = {
   discountPercent: number;
   active: number;
   createdAt: string;
+  expiresAt: string | null;
 };
 
 function authHeaders(token: string) {
@@ -154,7 +155,7 @@ export async function fetchOwnerPromoCodes(
 
 export async function createOwnerPromoCode(
   salonId: string,
-  payload: { code: string; discountPercent: number },
+  payload: { code: string; discountPercent: number; expiresAt?: string },
   token: string
 ): Promise<PromoCode> {
   const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/promo-codes`, {

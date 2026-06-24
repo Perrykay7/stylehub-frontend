@@ -66,8 +66,9 @@ import {
 // Promo code state
   const [promoCodes, setPromoCodes] = useState<Record<string, PromoCode[]>>({});
   const [promoFormSalonId, setPromoFormSalonId] = useState<string | null>(null);
-  const [promoCode, setPromoCode] = useState("");
+ const [promoCode, setPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState("");
+  const [promoExpiry, setPromoExpiry] = useState("");
   const [submittingPromo, setSubmittingPromo] = useState(false);
   async function loadData() {
     if (!token) return;
@@ -269,15 +270,29 @@ import {
       Alert.alert("Missing info", "Please enter a code and discount percent.");
       return;
     }
+    let expiresAtIso: string | undefined;
+    if (promoExpiry) {
+      const parsed = new Date(promoExpiry);
+      if (isNaN(parsed.getTime())) {
+        Alert.alert("Invalid date", "Please enter the expiry date as YYYY-MM-DD.");
+        return;
+      }
+      expiresAtIso = parsed.toISOString();
+    }
     setSubmittingPromo(true);
     try {
       await createOwnerPromoCode(
         salonId,
-        { code: promoCode.toUpperCase(), discountPercent: discount },
+        {
+          code: promoCode.toUpperCase(),
+          discountPercent: discount,
+          expiresAt: expiresAtIso,
+        },
         token
       );
       setPromoCode("");
       setPromoDiscount("");
+      setPromoExpiry("");
       setPromoFormSalonId(null);
       await loadPromoCodes(salonId);
     } catch (err: any) {
@@ -297,6 +312,9 @@ import {
     }
   }
 
+ const totalBookings = bookings.length;
+  const totalRevenue = bookings.reduce((sum, b) => sum + b.price, 0);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -308,7 +326,19 @@ import {
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: "My Salon" }} />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+     <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.statsCard}>
+          <View style={styles.statBlock}>
+            <Text style={styles.statValue}>{totalBookings}</Text>
+            <Text style={styles.statLabel}>Total Bookings</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBlock}>
+            <Text style={styles.statValue}>GHS {totalRevenue}</Text>
+            <Text style={styles.statLabel}>Total Revenue</Text>
+          </View>
+        </View>
+
         <Text style={styles.sectionTitle}>Your Salons</Text>
 
         {salons.map((salon) => (
@@ -512,21 +542,31 @@ import {
                 {(promoCodes[salon.id] || []).length === 0 && (
                   <Text style={styles.noServices}>No promo codes yet.</Text>
                 )}
-                {(promoCodes[salon.id] || []).map((promo) => (
-                  <View key={promo.id} style={styles.serviceRow}>
-                    <View style={styles.serviceInfo}>
-                      <Text style={styles.serviceName}>{promo.code}</Text>
-                      <Text style={styles.serviceMeta}>
-                        {promo.discountPercent}% off
-                      </Text>
+                {(promoCodes[salon.id] || []).map((promo) => {
+                  const isExpired =
+                    promo.expiresAt && new Date(promo.expiresAt) < new Date();
+                  return (
+                    <View key={promo.id} style={styles.serviceRow}>
+                      <View style={styles.serviceInfo}>
+                        <Text style={styles.serviceName}>{promo.code}</Text>
+                        <Text style={styles.serviceMeta}>
+                          {promo.discountPercent}% off
+                          {promo.expiresAt
+                            ? ` · Expires ${new Date(promo.expiresAt).toLocaleDateString()}`
+                            : ""}
+                        </Text>
+                        {isExpired && (
+                          <Text style={styles.expiredBadge}>Expired</Text>
+                        )}
+                      </View>
+                      <Pressable
+                        onPress={() => handleDeletePromoCode(promo.id, salon.id)}
+                      >
+                        <Text style={styles.deleteText}>Remove</Text>
+                      </Pressable>
                     </View>
-                    <Pressable
-                      onPress={() => handleDeletePromoCode(promo.id, salon.id)}
-                    >
-                      <Text style={styles.deleteText}>Remove</Text>
-                    </Pressable>
-                  </View>
-                ))}
+                  );
+                })}
 
                 {promoFormSalonId === salon.id ? (
                   <View style={styles.serviceForm}>
@@ -545,6 +585,13 @@ import {
                       keyboardType="numeric"
                       value={promoDiscount}
                       onChangeText={setPromoDiscount}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Expiry date (YYYY-MM-DD, optional)"
+                      placeholderTextColor="#A89D8F"
+                      value={promoExpiry}
+                      onChangeText={setPromoExpiry}
                     />
                     <Pressable
                       style={[
@@ -669,6 +716,40 @@ const styles = StyleSheet.create({
     color: INK,
     marginBottom: 14,
   },
+  statsCard: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 22,
+    shadowColor: INK,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 1,
+  },
+  statBlock: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statValue: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 22,
+    color: CLAY,
+  },
+  statLabel: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: "#F3ECE2",
+    marginHorizontal: 12,
+  },
   salonCard: {
     backgroundColor: "#fff",
     borderRadius: 18,
@@ -715,6 +796,14 @@ const styles = StyleSheet.create({
   serviceName: { fontFamily: "Manrope_700Bold", fontSize: 15, color: INK },
   serviceMeta: { fontFamily: "Manrope_500Medium", fontSize: 13, color: MUTED, marginTop: 2 },
   deleteText: { fontFamily: "Manrope_700Bold", fontSize: 13, color: RUST },
+  expiredBadge: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 11,
+    color: RUST,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
   addServiceLink: { marginTop: 12 },
   addServiceLinkText: { fontFamily: "Manrope_700Bold", fontSize: 14, color: CLAY },
   serviceForm: { marginTop: 12, gap: 8 },
