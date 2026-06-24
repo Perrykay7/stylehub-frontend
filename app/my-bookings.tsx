@@ -3,24 +3,38 @@ import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
     Pressable,
+    SectionList,
     StyleSheet,
     Text,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../data/authContext";
 import { Booking, cancelBooking, fetchBookings } from "./api/client";
 
+function getAppointmentDateTime(booking: Booking) {
+  return new Date(`${booking.date}T${booking.time}:00`);
+}
+
+function getHoursUntil(booking: Booking) {
+  const appointmentDateTime = getAppointmentDateTime(booking);
+  return (appointmentDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
+}
+
 function BookingItem({
   booking,
+  isUpcoming,
   onCancel,
 }: {
   booking: Booking;
+  isUpcoming: boolean;
   onCancel: (id: string) => void;
 }) {
+  const hoursUntil = getHoursUntil(booking);
+  const canCancel = isUpcoming && hoursUntil >= 2;
+
   return (
     <View style={styles.card}>
       <Text style={styles.salonName}>{booking.salonName}</Text>
@@ -31,12 +45,21 @@ function BookingItem({
         </Text>
         <Text style={styles.price}>GHS {booking.price}</Text>
       </View>
-      <Pressable
-        style={styles.cancelButton}
-        onPress={() => onCancel(booking.id)}
-      >
-        <Text style={styles.cancelButtonText}>Cancel Booking</Text>
-      </Pressable>
+
+      {isUpcoming && (
+        canCancel ? (
+          <Pressable
+            style={styles.cancelButton}
+            onPress={() => onCancel(booking.id)}
+          >
+            <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.cancelDisabledText}>
+            Cancellations must be made at least 2 hours before your appointment.
+          </Text>
+        )
+      )}
     </View>
   );
 }
@@ -76,14 +99,36 @@ export default function MyBookingsScreen() {
             try {
               await cancelBooking(bookingId, token);
               setBookings((prev) => prev.filter((b) => b.id !== bookingId));
-            } catch {
-              Alert.alert("Error", "Could not cancel booking. Please try again.");
+            } catch (err: any) {
+              Alert.alert(
+                "Error",
+                err.message || "Could not cancel booking. Please try again."
+              );
             }
           },
         },
       ]
     );
   }
+
+  const now = Date.now();
+  const upcoming = bookings
+    .filter((b) => getAppointmentDateTime(b).getTime() >= now)
+    .sort(
+      (a, b) =>
+        getAppointmentDateTime(a).getTime() - getAppointmentDateTime(b).getTime()
+    );
+  const past = bookings
+    .filter((b) => getAppointmentDateTime(b).getTime() < now)
+    .sort(
+      (a, b) =>
+        getAppointmentDateTime(b).getTime() - getAppointmentDateTime(a).getTime()
+    );
+
+  const sections = [
+    { title: "Upcoming", data: upcoming, isUpcoming: true },
+    { title: "Past", data: past, isUpcoming: false },
+  ].filter((section) => section.data.length > 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -93,11 +138,18 @@ export default function MyBookingsScreen() {
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : (
-        <FlatList
-          data={bookings}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <BookingItem booking={item} onCancel={handleCancel} />
+          renderItem={({ item, section }) => (
+            <BookingItem
+              booking={item}
+              isUpcoming={section.isUpcoming}
+              onCancel={handleCancel}
+            />
+          )}
+          renderSectionHeader={({ section }) => (
+            <Text style={styles.sectionHeader}>{section.title}</Text>
           )}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
@@ -138,6 +190,13 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+  },
+  sectionHeader: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 18,
+    color: INK,
+    marginTop: 12,
+    marginBottom: 10,
   },
   card: {
     backgroundColor: "#fff",
@@ -188,6 +247,13 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_700Bold",
     color: RUST,
     fontSize: 13,
+  },
+  cancelDisabledText: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 14,
+    textAlign: "center",
   },
   emptyState: {
     alignItems: "center",

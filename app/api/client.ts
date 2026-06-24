@@ -39,6 +39,7 @@ export type Booking = {
   serviceId: string;
   salonName: string;
   serviceName: string;
+  date: string;
   dateLabel: string;
   time: string;
   price: number;
