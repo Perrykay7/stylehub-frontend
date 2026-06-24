@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
@@ -9,7 +10,6 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import { useAuth } from "../data/authContext";
 
 export default function RegisterScreen() {
@@ -19,8 +19,9 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"customer" | "owner">("customer");
   const [inviteCode, setInviteCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
+ const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleRegister() {
     if (!name || !phone || !password) {
@@ -111,15 +112,27 @@ export default function RegisterScreen() {
           onChangeText={setPhone}
           autoCapitalize="none"
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Password (min. 6 characters)"
-          placeholderTextColor="#A89D8F"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          autoCapitalize="none"
-        />
+        <View style={styles.passwordWrapper}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Password (min. 6 characters)"
+            placeholderTextColor="#A89D8F"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+            autoCapitalize="none"
+          />
+          <Pressable
+            style={styles.eyeButton}
+            onPress={() => setShowPassword((prev) => !prev)}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off" : "eye"}
+              size={20}
+              color="#8C8378"
+            />
+          </Pressable>
+        </View>
 
         {role === "owner" && (
           <TextInput
@@ -239,6 +252,29 @@ const styles = StyleSheet.create({
     color: INK,
     borderWidth: 1,
     borderColor: "#EFE6D9",
+  },
+  passwordWrapper: {
+    position: "relative",
+    marginBottom: 12,
+  },
+  passwordInput: {
+    fontFamily: "Manrope_500Medium",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingRight: 46,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: INK,
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
   button: {
     backgroundColor: CLAY,

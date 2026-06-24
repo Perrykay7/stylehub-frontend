@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
@@ -19,9 +20,10 @@ export default function ForgotPasswordScreen() {
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  const [error, setError] = useState<string | null>(null);
+ const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleRequestCode() {
     if (!phone) {
@@ -112,15 +114,27 @@ export default function ForgotPasswordScreen() {
               value={code}
               onChangeText={setCode}
             />
-            <TextInput
-              style={styles.input}
-              placeholder="New password"
-              placeholderTextColor="#A89D8F"
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-              autoCapitalize="none"
-            />
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="New password"
+                placeholderTextColor="#A89D8F"
+                secureTextEntry={!showPassword}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                autoCapitalize="none"
+              />
+              <Pressable
+                style={styles.eyeButton}
+                onPress={() => setShowPassword((prev) => !prev)}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={20}
+                  color="#8C8378"
+                />
+              </Pressable>
+            </View>
             <Pressable
               style={[styles.button, submitting && styles.buttonDisabled]}
               onPress={handleResetPassword}
@@ -210,6 +224,29 @@ const styles = StyleSheet.create({
     color: INK,
     borderWidth: 1,
     borderColor: "#EFE6D9",
+  },
+  passwordWrapper: {
+    position: "relative",
+    marginBottom: 12,
+  },
+  passwordInput: {
+    fontFamily: "Manrope_500Medium",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingRight: 46,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: INK,
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
   button: {
     backgroundColor: CLAY,
