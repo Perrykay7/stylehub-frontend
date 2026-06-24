@@ -99,7 +99,8 @@ export default function BrowseScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
         <Text style={styles.eyebrow}>StyleHub</Text>
-        <Text style={styles.header}>Nearby Salons & Spas</Text>
+        <Text style={styles.header}>Welcome, {user?.name?.split(" ")[0]}</Text>
+        <Text style={styles.subheader}>Nearby Salons & Spas</Text>
         <View style={styles.headerActions}>
           <Pressable onPress={() => router.push("/my-bookings")}>
             <Text style={styles.myBookingsLink}>My Bookings</Text>
@@ -200,6 +201,12 @@ const styles = StyleSheet.create({
     fontFamily: "PlayfairDisplay_700Bold",
     fontSize: 28,
     color: INK,
+  },
+  subheader: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 14,
+    color: MUTED,
+    marginTop: 4,
   },
   headerActions: {
     flexDirection: "row",
