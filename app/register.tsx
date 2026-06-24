@@ -17,6 +17,8 @@ export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState<"customer" | "owner">("customer");
   const [inviteCode, setInviteCode] = useState("");
  const [error, setError] = useState<string | null>(null);
@@ -30,6 +32,10 @@ export default function RegisterScreen() {
     }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
     if (role === "owner" && !inviteCode) {
@@ -128,6 +134,27 @@ export default function RegisterScreen() {
           >
             <Ionicons
               name={showPassword ? "eye-off" : "eye"}
+              size={20}
+              color="#8C8378"
+            />
+          </Pressable>
+        </View>
+        <View style={styles.passwordWrapper}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Confirm password"
+            placeholderTextColor="#A89D8F"
+            secureTextEntry={!showConfirmPassword}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            autoCapitalize="none"
+          />
+          <Pressable
+            style={styles.eyeButton}
+            onPress={() => setShowConfirmPassword((prev) => !prev)}
+          >
+            <Ionicons
+              name={showConfirmPassword ? "eye-off" : "eye"}
               size={20}
               color="#8C8378"
             />
