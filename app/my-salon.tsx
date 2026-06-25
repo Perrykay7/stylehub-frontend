@@ -17,17 +17,19 @@ import {
     addOwnerService,
     createOwnerPromoCode,
     createOwnerSalon,
+    Customer,
     deleteOwnerPromoCode,
     deleteOwnerSalon,
     deleteOwnerService,
     fetchOwnerBookings,
+    fetchOwnerCustomers,
     fetchOwnerPromoCodes,
     fetchOwnerSalons,
     OwnerBooking,
     OwnerSalon,
     PromoCode,
     updateOwnerSalon,
-    updateOwnerService,
+    updateOwnerService
 } from "./api/ownerClient";
  export default function MySalonScreen() {
   const { token } = useAuth();
@@ -66,10 +68,12 @@ import {
 // Promo code state
   const [promoCodes, setPromoCodes] = useState<Record<string, PromoCode[]>>({});
   const [promoFormSalonId, setPromoFormSalonId] = useState<string | null>(null);
- const [promoCode, setPromoCode] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState("");
   const [promoExpiry, setPromoExpiry] = useState("");
   const [submittingPromo, setSubmittingPromo] = useState(false);
+  const [customers, setCustomers] = useState<Record<string, Customer[]>>({});
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
   async function loadData() {
     if (!token) return;
     try {
@@ -263,6 +267,24 @@ import {
     }
   }
 
+  async function loadCustomers(salonId: string) {
+    if (!token) return;
+    try {
+      const data = await fetchOwnerCustomers(salonId, token);
+      setCustomers((prev) => ({ ...prev, [salonId]: data }));
+    } catch {
+      // Silently fail - customer list is only needed when creating a targeted promo
+    }
+  }
+
+  function toggleCustomerSelection(userId: string) {
+    setSelectedCustomerIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  }
+
   async function handleCreatePromoCode(salonId: string) {
     if (!token) return;
     const discount = parseInt(promoDiscount, 10);
@@ -281,18 +303,20 @@ import {
     }
     setSubmittingPromo(true);
     try {
-      await createOwnerPromoCode(
+     await createOwnerPromoCode(
         salonId,
         {
           code: promoCode.toUpperCase(),
           discountPercent: discount,
           expiresAt: expiresAtIso,
+          userIds: selectedCustomerIds,
         },
         token
       );
       setPromoCode("");
       setPromoDiscount("");
       setPromoExpiry("");
+      setSelectedCustomerIds([]);
       setPromoFormSalonId(null);
       await loadPromoCodes(salonId);
     } catch (err: any) {
@@ -555,6 +579,13 @@ import {
                             ? ` · Expires ${new Date(promo.expiresAt).toLocaleDateString()}`
                             : ""}
                         </Text>
+                        <Text style={styles.serviceMeta}>
+                          {promo.recipients.length > 0
+                            ? `Limited to ${promo.recipients.length} customer${
+                                promo.recipients.length > 1 ? "s" : ""
+                              }`
+                            : "Public"}
+                        </Text>
                         {isExpired && (
                           <Text style={styles.expiredBadge}>Expired</Text>
                         )}
@@ -593,6 +624,40 @@ import {
                       value={promoExpiry}
                       onChangeText={setPromoExpiry}
                     />
+
+                    <Text style={styles.promoTargetLabel}>
+                      Limit to specific customers (optional)
+                    </Text>
+                    {(customers[salon.id] || []).length === 0 ? (
+                      <Text style={styles.noServices}>
+                        No customers have booked at this salon yet.
+                      </Text>
+                    ) : (
+                      (customers[salon.id] || []).map((customer) => {
+                        const isSelected = selectedCustomerIds.includes(customer.id);
+                        return (
+                          <Pressable
+                            key={customer.id}
+                            style={styles.customerRow}
+                            onPress={() => toggleCustomerSelection(customer.id)}
+                          >
+                            <View
+                              style={[
+                                styles.checkbox,
+                                isSelected && styles.checkboxSelected,
+                              ]}
+                            >
+                              {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                            </View>
+                            <View>
+                              <Text style={styles.customerName}>{customer.name}</Text>
+                              <Text style={styles.customerPhone}>{customer.phone}</Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })
+                    )}
+
                     <Pressable
                       style={[
                         styles.smallButton,
@@ -609,7 +674,11 @@ import {
                 ) : (
                   <Pressable
                     style={styles.addServiceLink}
-                    onPress={() => setPromoFormSalonId(salon.id)}
+                    onPress={() => {
+                      setPromoFormSalonId(salon.id);
+                      setSelectedCustomerIds([]);
+                      loadCustomers(salon.id);
+                    }}
                   >
                     <Text style={styles.addServiceLinkText}>+ Add a promo code</Text>
                   </Pressable>
@@ -803,6 +872,47 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginTop: 2,
+  },
+  promoTargetLabel: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  customerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#D8CDBF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxSelected: {
+    backgroundColor: CLAY,
+    borderColor: CLAY,
+  },
+  checkmark: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  customerName: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 14,
+    color: INK,
+  },
+  customerPhone: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 12,
+    color: MUTED,
   },
   addServiceLink: { marginTop: 12 },
   addServiceLinkText: { fontFamily: "Manrope_700Bold", fontSize: 14, color: CLAY },

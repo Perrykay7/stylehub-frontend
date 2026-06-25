@@ -24,6 +24,12 @@ export type OwnerBooking = {
   price: number;
   createdAt: string;
 };
+export type Customer = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
 export type PromoCode = {
   id: string;
   salonId: string;
@@ -32,6 +38,7 @@ export type PromoCode = {
   active: number;
   createdAt: string;
   expiresAt: string | null;
+  recipients: Customer[];
 };
 
 function authHeaders(token: string) {
@@ -153,9 +160,25 @@ export async function fetchOwnerPromoCodes(
   return response.json();
 }
 
+export async function fetchOwnerCustomers(
+  salonId: string,
+  token: string
+): Promise<Customer[]> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/customers`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch customers");
+  return response.json();
+}
+
 export async function createOwnerPromoCode(
   salonId: string,
-  payload: { code: string; discountPercent: number; expiresAt?: string },
+  payload: {
+    code: string;
+    discountPercent: number;
+    expiresAt?: string;
+    userIds?: string[];
+  },
   token: string
 ): Promise<PromoCode> {
   const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/promo-codes`, {
