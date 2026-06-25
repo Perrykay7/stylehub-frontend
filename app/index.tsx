@@ -5,6 +5,7 @@ import {
     ActivityIndicator,
     FlatList,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -63,6 +64,7 @@ export default function BrowseScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+ 
 
   useEffect(() => {
     fetchSalons()
@@ -78,9 +80,12 @@ export default function BrowseScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  const categories = useMemo(() => {
+ const [categories, setCategories] = useState<string[]>([]);
+
+  useEffect(() => {
     const unique = new Set(salons.map((s) => s.category));
-    return Array.from(unique);
+    const timer = setTimeout(() => setCategories(Array.from(unique)), 50);
+    return () => clearTimeout(timer);
   }, [salons]);
 
   const filteredSalons = useMemo(() => {
@@ -95,8 +100,8 @@ export default function BrowseScreen() {
     });
   }, [salons, query, activeCategory]);
 
-  return (
-    <SafeAreaView style={styles.container}>
+ const ListHeader = (
+    <>
       <View style={styles.headerContainer}>
         <Text style={styles.eyebrow}>StyleHub</Text>
         <Text style={styles.header}>Welcome, {user?.name?.split(" ")[0]}</Text>
@@ -105,7 +110,7 @@ export default function BrowseScreen() {
           <Pressable onPress={() => router.push("/my-bookings")}>
             <Text style={styles.myBookingsLink}>My Bookings</Text>
           </Pressable>
-         {user?.role === "owner" && (
+          {user?.role === "owner" && (
             <Pressable onPress={() => router.push("/my-salon")}>
               <Text style={styles.myBookingsLink}>My Salon</Text>
             </Pressable>
@@ -126,17 +131,18 @@ export default function BrowseScreen() {
       />
 
       {categories.length > 0 && (
-        <FlatList
+        <ScrollView
+          key={categories.join(",")}
           horizontal
           style={styles.chipsList}
           showsHorizontalScrollIndicator={false}
-          data={categories}
-          keyExtractor={(item) => item}
           contentContainerStyle={styles.chipList}
-          renderItem={({ item }) => {
+        >
+          {categories.map((item) => {
             const isSelected = item === activeCategory;
             return (
               <Pressable
+                key={item}
                 style={[styles.chip, isSelected && styles.chipSelected]}
                 onPress={() => setActiveCategory(isSelected ? null : item)}
               >
@@ -150,19 +156,30 @@ export default function BrowseScreen() {
                 </Text>
               </Pressable>
             );
-          }}
-        />
+          })}
+        </ScrollView>
       )}
+    </>
+  );
 
+  return (
+    <SafeAreaView style={styles.container}>
       {loading ? (
-        <ActivityIndicator style={styles.loading} size="large" color="#C1683C" />
+        <>
+          {ListHeader}
+          <ActivityIndicator style={styles.loading} size="large" color="#C1683C" />
+        </>
       ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
+        <>
+          {ListHeader}
+          <Text style={styles.errorText}>{error}</Text>
+        </>
       ) : (
         <FlatList
           data={filteredSalons}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <SalonCard salon={item} />}
+          ListHeaderComponent={ListHeader}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <Text style={styles.emptyText}>No salons match your search.</Text>
@@ -257,7 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: CLAY,
     borderColor: CLAY,
   },
-  chipText: {
+ chipText: {
     fontFamily: "Manrope_600SemiBold",
     fontSize: 13,
     color: INK,
