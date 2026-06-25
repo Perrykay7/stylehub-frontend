@@ -1,20 +1,20 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../data/authContext";
+import { useAuth } from "../../data/authContext";
 
-import { fetchSalons, Salon } from "./api/client";
+import { fetchSalons, Salon } from "../api/client";
 
 function RatingSeal({ rating, reviewCount }: { rating: number; reviewCount: number }) {
   return (
@@ -59,6 +59,14 @@ function SalonCard({ salon }: { salon: Salon }) {
 
 export default function BrowseScreen() {
   const { logout, user } = useAuth();
+  const { focusSearch } = useLocalSearchParams<{ focusSearch?: string }>();
+  const searchInputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (focusSearch) {
+      searchInputRef.current?.focus();
+    }
+  }, [focusSearch]);
   const [salons, setSalons] = useState<Salon[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +129,7 @@ export default function BrowseScreen() {
         </View>
       </View>
       <TextInput
+        ref={searchInputRef}
         style={styles.searchInput}
         placeholder="Search by name or category"
         placeholderTextColor="#A89D8F"

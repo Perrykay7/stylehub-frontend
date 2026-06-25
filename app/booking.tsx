@@ -156,9 +156,9 @@ export default function BookingScreen() {
         "Booking Confirmed",
         `${service.name} at ${salon.name}\n${dateLabel}, ${selectedTime}\nGHS ${discountedPrice}`,
         [
-          {
+         {
             text: "Done",
-            onPress: () => router.push("/"),
+            onPress: () => router.push("/(tabs)" as any),
           },
         ]
       );

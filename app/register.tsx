@@ -45,8 +45,8 @@ export default function RegisterScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      await register(name, phone, password, role, inviteCode);
-      router.replace("/");
+     await register(name, phone, password, role, inviteCode);
+      router.replace("/(tabs)" as any);
     } catch (err: any) {
       setError(err.message || "Registration failed.");
     } finally {

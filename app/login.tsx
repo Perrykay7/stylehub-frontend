@@ -29,8 +29,8 @@ export default function LoginScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(phone, password);
-      router.replace("/");
+     await login(phone, password);
+      router.replace("/(tabs)" as any);
     } catch (err: any) {
       setError(err.message || "Login failed.");
     } finally {

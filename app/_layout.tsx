@@ -21,7 +21,7 @@ function RootNavigator() {
   useEffect(() => {
     if (loading) return;
 
-    const inAuthGroup =
+   const inAuthGroup =
       segments[0] === "login" ||
       segments[0] === "register" ||
       segments[0] === "forgot-password";
@@ -29,7 +29,7 @@ function RootNavigator() {
     if (!user && !inAuthGroup) {
       router.replace("/login");
     } else if (user && inAuthGroup) {
-      router.replace("/");
+      router.replace("/(tabs)" as any);
     }
   }, [user, loading, segments]);
 
@@ -43,12 +43,11 @@ function RootNavigator() {
 
   return (
     <Stack>
-      <Stack.Screen name="index" options={{ title: "StyleHub" }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="salon/[id]" options={{ title: "Salon Details" }} />
       <Stack.Screen name="booking" options={{ title: "Book Appointment" }} />
-      <Stack.Screen name="my-bookings" options={{ title: "My Bookings" }} />
       <Stack.Screen name="my-salon" options={{ title: "My Salon" }} />
-     <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ title: "Settings" }} />

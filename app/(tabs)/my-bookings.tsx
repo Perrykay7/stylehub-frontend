@@ -1,18 +1,18 @@
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Pressable,
-    SectionList,
-    StyleSheet,
-    Text,
-    View
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  SectionList,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../data/authContext";
-import { Booking, cancelBooking, fetchBookings } from "./api/client";
+import { useAuth } from "../../data/authContext";
+import { Booking, cancelBooking, fetchBookings } from "../api/client";
 
 function getAppointmentDateTime(booking: Booking) {
   return new Date(`${booking.date}T${booking.time}:00`);
