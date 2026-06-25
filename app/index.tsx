@@ -105,13 +105,13 @@ export default function BrowseScreen() {
           <Pressable onPress={() => router.push("/my-bookings")}>
             <Text style={styles.myBookingsLink}>My Bookings</Text>
           </Pressable>
-          {user?.role === "owner" && (
+         {user?.role === "owner" && (
             <Pressable onPress={() => router.push("/my-salon")}>
               <Text style={styles.myBookingsLink}>My Salon</Text>
             </Pressable>
           )}
-          <Pressable onPress={logout}>
-            <Text style={styles.logoutLink}>Log Out</Text>
+          <Pressable onPress={() => router.push("/settings")}>
+            <Text style={styles.myBookingsLink}>Settings</Text>
           </Pressable>
         </View>
       </View>

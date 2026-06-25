@@ -181,3 +181,15 @@ export async function resetPassword(
   }
   return data;
 }
+
+export async function deleteAccount(token: string) {
+  const response = await fetch(`${BASE_URL}/auth/account`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not delete account");
+  }
+  return data;
+}

@@ -48,9 +48,10 @@ function RootNavigator() {
       <Stack.Screen name="booking" options={{ title: "Book Appointment" }} />
       <Stack.Screen name="my-bookings" options={{ title: "My Bookings" }} />
       <Stack.Screen name="my-salon" options={{ title: "My Salon" }} />
-      <Stack.Screen name="login" options={{ headerShown: false }} />
+     <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ title: "Settings" }} />
     </Stack>
   );
 }
