@@ -755,6 +755,9 @@ import {
             <View key={booking.id} style={styles.bookingCard}>
               <Text style={styles.salonName}>{booking.salonName}</Text>
               <Text style={styles.serviceName}>{booking.serviceName}</Text>
+              <Text style={styles.customerBookingInfo}>
+                {booking.customerName} · {booking.customerPhone}
+              </Text>
               <View style={styles.bookingRow}>
                 <Text style={styles.salonMeta}>
                   {booking.dateLabel} · {booking.time}
@@ -984,5 +987,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 8,
+  },
+  customerBookingInfo: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    color: CLAY,
+    marginTop: 6,
   },
 });

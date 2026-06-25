@@ -23,6 +23,8 @@ export type OwnerBooking = {
   time: string;
   price: number;
   createdAt: string;
+  customerName: string;
+  customerPhone: string;
 };
 export type Customer = {
   id: string;
