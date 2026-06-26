@@ -32,6 +32,15 @@ export type Customer = {
   phone: string;
 };
 
+export type Professional = {
+  id: string;
+  salonId: string;
+  name: string;
+  photoUrl: string | null;
+  createdAt: string;
+  services: { id: string; name: string; durationMins: number; price: number }[];
+};
+
 export type PromoCode = {
   id: string;
   salonId: string;
@@ -48,6 +57,33 @@ function authHeaders(token: string) {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   };
+}
+
+export async function uploadProfessionalPhoto(
+  fileUri: string,
+  token: string
+): Promise<string> {
+  const formData = new FormData();
+  formData.append("photo", {
+    uri: fileUri,
+    name: "photo.jpg",
+    type: "image/jpeg",
+  } as any);
+
+  const response = await fetch(`${BASE_URL}/upload/professional-photo`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Do NOT set Content-Type manually for FormData - fetch sets the correct multipart boundary automatically
+    },
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Failed to upload photo");
+  }
+  return data.photoUrl;
 }
 
 export async function fetchOwnerSalons(token: string): Promise<OwnerSalon[]> {
@@ -170,6 +206,42 @@ export async function fetchOwnerCustomers(
     headers: authHeaders(token),
   });
   if (!response.ok) throw new Error("Failed to fetch customers");
+  return response.json();
+}
+export async function fetchOwnerProfessionals(
+  salonId: string,
+  token: string
+): Promise<Professional[]> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/professionals`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch professionals");
+  return response.json();
+}
+
+export async function createOwnerProfessional(
+  salonId: string,
+  payload: { name: string; photoUrl?: string; serviceIds: string[] },
+  token: string
+): Promise<Professional> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/professionals`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "Failed to add professional");
+  }
+  return response.json();
+}
+
+export async function deleteOwnerProfessional(professionalId: string, token: string) {
+  const response = await fetch(`${BASE_URL}/owner/professionals/${professionalId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to delete professional");
   return response.json();
 }
 

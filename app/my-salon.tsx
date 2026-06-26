@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Image,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -12,24 +13,30 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../data/authContext";
 import {
     addOwnerService,
+    createOwnerProfessional,
     createOwnerPromoCode,
     createOwnerSalon,
     Customer,
+    deleteOwnerProfessional,
     deleteOwnerPromoCode,
     deleteOwnerSalon,
     deleteOwnerService,
     fetchOwnerBookings,
     fetchOwnerCustomers,
+    fetchOwnerProfessionals,
     fetchOwnerPromoCodes,
     fetchOwnerSalons,
     OwnerBooking,
     OwnerSalon,
+    Professional,
     PromoCode,
     updateOwnerSalon,
-    updateOwnerService
+    updateOwnerService,
+    uploadProfessionalPhoto,
 } from "./api/ownerClient";
  export default function MySalonScreen() {
   const { token } = useAuth();
@@ -72,8 +79,17 @@ import {
   const [promoDiscount, setPromoDiscount] = useState("");
   const [promoExpiry, setPromoExpiry] = useState("");
   const [submittingPromo, setSubmittingPromo] = useState(false);
-  const [customers, setCustomers] = useState<Record<string, Customer[]>>({});
+ const [customers, setCustomers] = useState<Record<string, Customer[]>>({});
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
+
+  // Professional state
+  const [professionals, setProfessionals] = useState<Record<string, Professional[]>>({});
+  const [proFormSalonId, setProFormSalonId] = useState<string | null>(null);
+  const [proName, setProName] = useState("");
+ const [proPhotoUrl, setProPhotoUrl] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [proSelectedServiceIds, setProSelectedServiceIds] = useState<string[]>([]);
+  const [submittingPro, setSubmittingPro] = useState(false);
   async function loadData() {
     if (!token) return;
     try {
@@ -83,7 +99,10 @@ import {
       ]);
       setSalons(salonData);
       setBookings(bookingData);
-      salonData.forEach((s) => loadPromoCodes(s.id));
+      salonData.forEach((s) => {
+        loadPromoCodes(s.id);
+        loadProfessionals(s.id);
+      });
     } catch {
       Alert.alert("Error", "Could not load your salon data.");
     } finally {
@@ -274,6 +293,89 @@ import {
       setCustomers((prev) => ({ ...prev, [salonId]: data }));
     } catch {
       // Silently fail - customer list is only needed when creating a targeted promo
+    }
+  }
+  async function loadProfessionals(salonId: string) {
+    if (!token) return;
+    try {
+      const data = await fetchOwnerProfessionals(salonId, token);
+      setProfessionals((prev) => ({ ...prev, [salonId]: data }));
+    } catch {
+      Alert.alert("Error", "Could not load professionals.");
+    }
+  }
+
+  function toggleProServiceSelection(serviceId: string) {
+    setProSelectedServiceIds((prev) =>
+      prev.includes(serviceId)
+        ? prev.filter((id) => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  }
+  async function handlePickProfessionalPhoto() {
+    if (!token) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo access to upload a picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setUploadingPhoto(true);
+    try {
+      const photoUrl = await uploadProfessionalPhoto(result.assets[0].uri, token);
+      setProPhotoUrl(photoUrl);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not upload photo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function handleCreateProfessional(salonId: string) {
+    if (!token) return;
+    if (!proName || proSelectedServiceIds.length === 0) {
+      Alert.alert("Missing info", "Please enter a name and select at least one service.");
+      return;
+    }
+    setSubmittingPro(true);
+    try {
+      await createOwnerProfessional(
+        salonId,
+        {
+          name: proName,
+          photoUrl: proPhotoUrl || undefined,
+          serviceIds: proSelectedServiceIds,
+        },
+        token
+      );
+      setProName("");
+      setProPhotoUrl("");
+      setProSelectedServiceIds([]);
+      setProFormSalonId(null);
+      await loadProfessionals(salonId);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not add professional.");
+    } finally {
+      setSubmittingPro(false);
+    }
+  }
+
+  async function handleDeleteProfessional(professionalId: string, salonId: string) {
+    if (!token) return;
+    try {
+      await deleteOwnerProfessional(professionalId, token);
+      await loadProfessionals(salonId);
+    } catch {
+      Alert.alert("Error", "Could not delete professional.");
     }
   }
 
@@ -562,6 +664,109 @@ import {
                     <Text style={styles.addServiceLinkText}>+ Add a service</Text>
                   </Pressable>
                 )}
+
+<Text style={styles.servicesLabel}>Professionals</Text>
+                {(professionals[salon.id] || []).map((pro) => (
+                  <View key={pro.id} style={styles.serviceRow}>
+                    {pro.photoUrl ? (
+                      <Image source={{ uri: pro.photoUrl }} style={styles.proThumbnail} />
+                    ) : (
+                      <View style={styles.proThumbnailPlaceholder}>
+                        <Text style={styles.proThumbnailInitial}>
+                          {pro.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.serviceInfo}>
+                      <Text style={styles.serviceName}>{pro.name}</Text>
+                      <Text style={styles.serviceMeta}>
+                        {pro.services.map((s) => s.name).join(", ") || "No services assigned"}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => handleDeleteProfessional(pro.id, salon.id)}
+                    >
+                      <Text style={styles.deleteText}>Remove</Text>
+                    </Pressable>
+                  </View>
+                ))}
+
+                {proFormSalonId === salon.id ? (
+                  <View style={styles.serviceForm}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Professional's name"
+                      placeholderTextColor="#A89D8F"
+                      value={proName}
+                      onChangeText={setProName}
+                    />
+                    <Pressable
+                      style={styles.photoPickerButton}
+                      onPress={handlePickProfessionalPhoto}
+                      disabled={uploadingPhoto}
+                    >
+                      {uploadingPhoto ? (
+                        <ActivityIndicator color="#C1683C" />
+                      ) : proPhotoUrl ? (
+                        <Image source={{ uri: proPhotoUrl }} style={styles.photoPreview} />
+                      ) : (
+                        <Text style={styles.photoPickerText}>+ Add a Photo</Text>
+                      )}
+                    </Pressable>
+                    <Text style={styles.promoTargetLabel}>
+                      Services this person performs
+                    </Text>
+                    {salon.services.length === 0 ? (
+                      <Text style={styles.noServices}>
+                        Add a service to this salon first.
+                      </Text>
+                    ) : (
+                      salon.services.map((service) => {
+                        const isSelected = proSelectedServiceIds.includes(service.id);
+                        return (
+                          <Pressable
+                            key={service.id}
+                            style={styles.customerRow}
+                            onPress={() => toggleProServiceSelection(service.id)}
+                          >
+                            <View
+                              style={[
+                                styles.checkbox,
+                                isSelected && styles.checkboxSelected,
+                              ]}
+                            >
+                              {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                            </View>
+                            <Text style={styles.customerName}>{service.name}</Text>
+                          </Pressable>
+                        );
+                      })
+                    )}
+                    <Pressable
+                      style={[
+                        styles.smallButton,
+                        submittingPro && styles.buttonDisabled,
+                      ]}
+                      onPress={() => handleCreateProfessional(salon.id)}
+                      disabled={submittingPro}
+                    >
+                      <Text style={styles.smallButtonText}>
+                        {submittingPro ? "Adding..." : "Add Professional"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    style={styles.addServiceLink}
+                    onPress={() => {
+                      setProFormSalonId(salon.id);
+                      setProSelectedServiceIds([]);
+                    }}
+                  >
+                    <Text style={styles.addServiceLinkText}>+ Add a professional</Text>
+                  </Pressable>
+                )}
+
                 <Text style={styles.servicesLabel}>Promo Codes</Text>
                 {(promoCodes[salon.id] || []).length === 0 && (
                   <Text style={styles.noServices}>No promo codes yet.</Text>
@@ -916,6 +1121,49 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_500Medium",
     fontSize: 12,
     color: MUTED,
+  },
+  photoPickerButton: {
+    height: 90,
+    width: 90,
+    borderRadius: 45,
+    backgroundColor: PAPER,
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: 4,
+    overflow: "hidden",
+  },
+  photoPickerText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
+    color: CLAY,
+    textAlign: "center",
+  },
+  photoPreview: {
+    width: "100%",
+    height: "100%",
+  },
+  proThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  proThumbnailPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F3ECE2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  proThumbnailInitial: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 16,
+    color: CLAY,
   },
   addServiceLink: { marginTop: 12 },
   addServiceLinkText: { fontFamily: "Manrope_700Bold", fontSize: 14, color: CLAY },
