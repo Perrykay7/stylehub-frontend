@@ -320,6 +320,13 @@ export default function BookingScreen() {
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.proName}>{pro.name}</Text>
+                    {pro.avgRating ? (
+                      <Text style={styles.proMeta}>
+                        ★ {pro.avgRating} ({pro.ratingCount})
+                      </Text>
+                    ) : (
+                      <Text style={styles.proMeta}>No ratings yet</Text>
+                    )}
                   </View>
                   {isSelected && (
                     <View style={styles.proCheckCircle}>
