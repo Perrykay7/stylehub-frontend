@@ -25,6 +25,7 @@ export type OwnerBooking = {
   createdAt: string;
   customerName: string;
   customerPhone: string;
+  professionalName: string | null;
 };
 export type Customer = {
   id: string;

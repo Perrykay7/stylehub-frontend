@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Image,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -16,7 +17,9 @@ import { useAuth } from "../data/authContext";
 import {
     createBooking,
     fetchBookedSlots,
+    fetchProfessionalsForService,
     fetchSalonById,
+    Professional,
     Salon,
     validatePromoCode,
 } from "./api/client";
@@ -78,15 +81,27 @@ export default function BookingScreen() {
     code: string;
     discountPercent: number;
   } | null>(null);
-  const [promoError, setPromoError] = useState<string | null>(null);
+ const [promoError, setPromoError] = useState<string | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
 
-  useEffect(() => {
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<
+    string | "no_preference"
+  >("no_preference");
+
+ useEffect(() => {
     fetchSalonById(salonId)
       .then((data) => setSalon(data))
       .catch(() => setSalon(null))
       .finally(() => setLoading(false));
   }, [salonId]);
+
+  useEffect(() => {
+    if (!salonId || !serviceId) return;
+    fetchProfessionalsForService(salonId, serviceId)
+      .then((data) => setProfessionals(data))
+      .catch(() => setProfessionals([]));
+  }, [salonId, serviceId]);
 
   const selectedDate = days[selectedDayIndex];
   const isoDate = toIsoDate(selectedDate);
@@ -148,6 +163,10 @@ export default function BookingScreen() {
           time: selectedTime,
           price: service.price,
           promoCode: appliedPromo?.code,
+          professionalId:
+            selectedProfessionalId === "no_preference"
+              ? undefined
+              : selectedProfessionalId,
         },
         token
       );
@@ -256,7 +275,62 @@ export default function BookingScreen() {
             "{appliedPromo.code}" applied — {appliedPromo.discountPercent}% off
           </Text>
         )}
-        {promoError && <Text style={styles.promoErrorText}>{promoError}</Text>}
+       {promoError && <Text style={styles.promoErrorText}>{promoError}</Text>}
+
+        {professionals.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Select Professional</Text>
+            <Pressable
+              style={[
+                styles.proCard,
+                selectedProfessionalId === "no_preference" && styles.proCardSelected,
+              ]}
+              onPress={() => setSelectedProfessionalId("no_preference")}
+            >
+              <View style={styles.proAvatarPlaceholder}>
+                <Text style={styles.proShuffleIcon}>⇄</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.proName}>No Preference</Text>
+                <Text style={styles.proMeta}>Maximum availability</Text>
+              </View>
+              {selectedProfessionalId === "no_preference" && (
+                <View style={styles.proCheckCircle}>
+                  <Text style={styles.proCheckmark}>✓</Text>
+                </View>
+              )}
+            </Pressable>
+
+            {professionals.map((pro) => {
+              const isSelected = selectedProfessionalId === pro.id;
+              return (
+                <Pressable
+                  key={pro.id}
+                  style={[styles.proCard, isSelected && styles.proCardSelected]}
+                  onPress={() => setSelectedProfessionalId(pro.id)}
+                >
+                  {pro.photoUrl ? (
+                    <Image source={{ uri: pro.photoUrl }} style={styles.proAvatar} />
+                  ) : (
+                    <View style={styles.proAvatarPlaceholder}>
+                      <Text style={styles.proInitial}>
+                        {pro.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.proName}>{pro.name}</Text>
+                  </View>
+                  {isSelected && (
+                    <View style={styles.proCheckCircle}>
+                      <Text style={styles.proCheckmark}>✓</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </>
+        )}
 
         <Text style={styles.sectionTitle}>Select Date</Text>
         <ScrollView
@@ -455,6 +529,68 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#C1432B",
     marginBottom: 16,
+  },
+  proCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: "#EFE6D9",
+  },
+  proCardSelected: {
+    borderColor: CLAY,
+    backgroundColor: "#FBF1E9",
+  },
+  proAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
+  },
+  proAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F3ECE2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  proInitial: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 16,
+    color: CLAY,
+  },
+  proShuffleIcon: {
+    fontSize: 18,
+    color: CLAY,
+  },
+  proName: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 15,
+    color: INK,
+  },
+  proMeta: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 13,
+    color: MUTED,
+    marginTop: 2,
+  },
+  proCheckCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: CLAY,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proCheckmark: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "bold",
   },
   sectionTitle: {
     fontFamily: "PlayfairDisplay_700Bold",

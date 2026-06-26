@@ -963,6 +963,9 @@ import {
               <Text style={styles.customerBookingInfo}>
                 {booking.customerName} · {booking.customerPhone}
               </Text>
+              {booking.professionalName && (
+                <Text style={styles.salonMeta}>With {booking.professionalName}</Text>
+              )}
               <View style={styles.bookingRow}>
                 <Text style={styles.salonMeta}>
                   {booking.dateLabel} · {booking.time}

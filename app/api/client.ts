@@ -32,6 +32,13 @@ export type Salon = {
   reviews: Review[];
 };
 
+export type Professional = {
+  id: string;
+  salonId: string;
+  name: string;
+  photoUrl: string | null;
+};
+
 export type Booking = {
   id: string;
   userId: string;
@@ -99,6 +106,7 @@ export async function createBooking(
     time: string;
     price: number;
     promoCode?: string;
+    professionalId?: string;
   },
   token: string
 ): Promise<Booking> {
@@ -128,6 +136,16 @@ export async function fetchBookings(token: string): Promise<Booking[]> {
   return response.json();
 }
 
+export async function fetchProfessionalsForService(
+  salonId: string,
+  serviceId: string
+): Promise<Professional[]> {
+  const response = await fetch(
+    `${BASE_URL}/salons/${salonId}/professionals?serviceId=${serviceId}`
+  );
+  if (!response.ok) throw new Error("Failed to fetch professionals");
+  return response.json();
+}
 export async function fetchBookedSlots(
   salonId: string,
   date: string
