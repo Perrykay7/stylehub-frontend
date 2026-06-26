@@ -37,6 +37,8 @@ export type Professional = {
   salonId: string;
   name: string;
   photoUrl: string | null;
+  avgRating: number | null;
+  ratingCount: number;
 };
 
 export type Booking = {
@@ -53,6 +55,9 @@ export type Booking = {
   originalPrice: number;
   discountAmount: number;
   createdAt: string;
+  professionalId: string | null;
+  professionalName: string | null;
+  hasRating: number;
 };
 
 export async function fetchSalons(): Promise<Salon[]> {
@@ -157,6 +162,26 @@ export async function fetchBookedSlots(
     throw new Error("Failed to fetch booked slots");
   }
   return response.json();
+}
+
+export async function rateProfessional(
+  professionalId: string,
+  payload: { bookingId: string; rating: number; comment?: string },
+  token: string
+) {
+  const response = await fetch(`${BASE_URL}/professionals/${professionalId}/ratings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Failed to submit rating");
+  }
+  return data;
 }
 
 export async function cancelBooking(bookingId: string, token: string) {

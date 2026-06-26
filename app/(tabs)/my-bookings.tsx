@@ -3,17 +3,18 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   SectionList,
   StyleSheet,
   Text,
+  TextInput,
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
-import { Booking, cancelBooking, fetchBookings } from "../api/client";
-
+import { Booking, cancelBooking, fetchBookings, rateProfessional } from "../api/client";
 function getAppointmentDateTime(booking: Booking) {
   return new Date(`${booking.date}T${booking.time}:00`);
 }
@@ -27,10 +28,12 @@ function BookingItem({
   booking,
   isUpcoming,
   onCancel,
+  onRate,
 }: {
   booking: Booking;
   isUpcoming: boolean;
   onCancel: (id: string) => void;
+  onRate: (booking: Booking) => void;
 }) {
   const hoursUntil = getHoursUntil(booking);
   const canCancel = isUpcoming && hoursUntil >= 2;
@@ -39,6 +42,9 @@ function BookingItem({
     <View style={styles.card}>
       <Text style={styles.salonName}>{booking.salonName}</Text>
       <Text style={styles.serviceName}>{booking.serviceName}</Text>
+      {booking.professionalName && (
+        <Text style={styles.meta}>With {booking.professionalName}</Text>
+      )}
       <View style={styles.row}>
         <Text style={styles.meta}>
           {booking.dateLabel} · {booking.time}
@@ -46,8 +52,8 @@ function BookingItem({
         <Text style={styles.price}>GHS {booking.price}</Text>
       </View>
 
-      {isUpcoming && (
-        canCancel ? (
+      {isUpcoming &&
+        (canCancel ? (
           <Pressable
             style={styles.cancelButton}
             onPress={() => onCancel(booking.id)}
@@ -58,7 +64,14 @@ function BookingItem({
           <Text style={styles.cancelDisabledText}>
             Cancellations must be made at least 2 hours before your appointment.
           </Text>
-        )
+        ))}
+
+      {!isUpcoming && booking.professionalId && !booking.hasRating && (
+        <Pressable style={styles.rateButton} onPress={() => onRate(booking)}>
+          <Text style={styles.rateButtonText}>
+            Rate {booking.professionalName}
+          </Text>
+        </Pressable>
       )}
     </View>
   );
@@ -69,6 +82,11 @@ export default function MyBookingsScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [ratingBooking, setRatingBooking] = useState<Booking | null>(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   function loadBookings() {
     if (!token) return;
@@ -85,6 +103,38 @@ export default function MyBookingsScreen() {
     loadBookings();
   }, [token]);
 
+  async function handleSubmitRating() {
+    if (!token || !ratingBooking) return;
+    if (ratingValue === 0) {
+      Alert.alert("Select a rating", "Please tap a star to rate.");
+      return;
+    }
+    setSubmittingRating(true);
+    try {
+      await rateProfessional(
+        ratingBooking.professionalId!,
+        {
+          bookingId: ratingBooking.id,
+          rating: ratingValue,
+          comment: ratingComment || undefined,
+        },
+        token
+      );
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === ratingBooking.id ? { ...b, hasRating: 1 } : b
+        )
+      );
+      setRatingBooking(null);
+      setRatingValue(0);
+      setRatingComment("");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not submit rating.");
+    } finally {
+      setSubmittingRating(false);
+    }
+  }
+  
   function handleCancel(bookingId: string) {
     Alert.alert(
       "Cancel Booking",
@@ -146,6 +196,11 @@ export default function MyBookingsScreen() {
               booking={item}
               isUpcoming={section.isUpcoming}
               onCancel={handleCancel}
+              onRate={(booking) => {
+                setRatingBooking(booking);
+                setRatingValue(0);
+                setRatingComment("");
+              }}
             />
           )}
           renderSectionHeader={({ section }) => (
@@ -160,8 +215,57 @@ export default function MyBookingsScreen() {
               </Text>
             </View>
           }
-        />
+       />
       )}
+
+      <Modal
+        visible={!!ratingBooking}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRatingBooking(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              Rate {ratingBooking?.professionalName}
+            </Text>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Pressable key={star} onPress={() => setRatingValue(star)}>
+                  <Text
+                    style={[
+                      styles.starText,
+                      star <= ratingValue && styles.starTextFilled,
+                    ]}
+                  >
+                    ★
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Leave a comment (optional)"
+              placeholderTextColor="#A89D8F"
+              value={ratingComment}
+              onChangeText={setRatingComment}
+              multiline
+            />
+            <Pressable
+              style={[styles.submitRatingButton, submittingRating && styles.cancelDisabledText]}
+              onPress={handleSubmitRating}
+              disabled={submittingRating}
+            >
+              <Text style={styles.submitRatingButtonText}>
+                {submittingRating ? "Submitting..." : "Submit Rating"}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setRatingBooking(null)}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -253,6 +357,83 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
     marginTop: 14,
+    textAlign: "center",
+  },
+  rateButton: {
+    marginTop: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 12,
+    backgroundColor: CLAY,
+  },
+  rateButtonText: {
+    fontFamily: "Manrope_700Bold",
+    color: "#fff",
+    fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(43,38,34,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    width: "100%",
+  },
+  modalTitle: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 20,
+    color: INK,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  starsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  starText: {
+    fontSize: 36,
+    color: "#E5DDD0",
+  },
+  starTextFilled: {
+    color: "#E0A35C",
+  },
+  commentInput: {
+    fontFamily: "Manrope_500Medium",
+    backgroundColor: PAPER,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: INK,
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+    minHeight: 70,
+    textAlignVertical: "top",
+    marginBottom: 16,
+  },
+  submitRatingButton: {
+    backgroundColor: CLAY,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  submitRatingButtonText: {
+    fontFamily: "Manrope_700Bold",
+    color: "#fff",
+    fontSize: 15,
+  },
+  modalCancelText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 14,
+    color: MUTED,
     textAlign: "center",
   },
   emptyState: {
