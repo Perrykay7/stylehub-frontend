@@ -26,11 +26,13 @@ export type OwnerBooking = {
   customerName: string;
   customerPhone: string;
   professionalName: string | null;
+  customerVisitCount: number;
 };
 export type Customer = {
   id: string;
   name: string;
   phone: string;
+  bookingCount: number;
 };
 
 export type Professional = {

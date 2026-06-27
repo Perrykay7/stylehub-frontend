@@ -38,7 +38,13 @@ import {
     updateOwnerService,
     uploadProfessionalPhoto,
 } from "./api/ownerClient";
- export default function MySalonScreen() {
+
+function getOrdinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+} 
+export default function MySalonScreen() {
   const { token } = useAuth();
   const [salons, setSalons] = useState<OwnerSalon[]>([]);
   const [bookings, setBookings] = useState<OwnerBooking[]>([]);
@@ -856,7 +862,10 @@ import {
                             </View>
                             <View>
                               <Text style={styles.customerName}>{customer.name}</Text>
-                              <Text style={styles.customerPhone}>{customer.phone}</Text>
+                              <Text style={styles.customerPhone}>
+                                {customer.phone} · {customer.bookingCount} booking
+                                {customer.bookingCount !== 1 ? "s" : ""}
+                              </Text>
                             </View>
                           </Pressable>
                         );
@@ -960,8 +969,9 @@ import {
             <View key={booking.id} style={styles.bookingCard}>
               <Text style={styles.salonName}>{booking.salonName}</Text>
               <Text style={styles.serviceName}>{booking.serviceName}</Text>
-              <Text style={styles.customerBookingInfo}>
-                {booking.customerName} · {booking.customerPhone}
+            <Text style={styles.customerBookingInfo}>
+                {booking.customerName} · {booking.customerPhone} ·{" "}
+                {getOrdinal(booking.customerVisitCount)} visit
               </Text>
               {booking.professionalName && (
                 <Text style={styles.salonMeta}>With {booking.professionalName}</Text>
