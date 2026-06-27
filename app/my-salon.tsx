@@ -37,6 +37,7 @@ import {
     updateOwnerSalon,
     updateOwnerService,
     uploadProfessionalPhoto,
+    uploadSalonPhoto,
 } from "./api/ownerClient";
 
 function getOrdinal(n: number) {
@@ -93,7 +94,8 @@ export default function MySalonScreen() {
   const [proFormSalonId, setProFormSalonId] = useState<string | null>(null);
   const [proName, setProName] = useState("");
  const [proPhotoUrl, setProPhotoUrl] = useState("");
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+ const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingSalonPhotoId, setUploadingSalonPhotoId] = useState<string | null>(null);
   const [proSelectedServiceIds, setProSelectedServiceIds] = useState<string[]>([]);
   const [submittingPro, setSubmittingPro] = useState(false);
   async function loadData() {
@@ -318,6 +320,47 @@ export default function MySalonScreen() {
         : [...prev, serviceId]
     );
   }
+  
+  async function handlePickSalonPhoto(salon: OwnerSalon) {
+    if (!token) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo access to upload a picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setUploadingSalonPhotoId(salon.id);
+    try {
+      const photoUrl = await uploadSalonPhoto(result.assets[0].uri, token);
+      await updateOwnerSalon(
+        salon.id,
+        {
+          name: salon.name,
+          category: salon.category,
+          address: salon.address,
+          openTime: salon.openTime,
+          closeTime: salon.closeTime,
+          imageUrl: photoUrl,
+        },
+        token
+      );
+      await loadData();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not upload photo.");
+    } finally {
+      setUploadingSalonPhotoId(null);
+    }
+  }
+  
   async function handlePickProfessionalPhoto() {
     if (!token) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -533,6 +576,29 @@ export default function MySalonScreen() {
               </View>
             ) : (
               <>
+              <Pressable
+                  style={styles.salonPhotoWrapper}
+                  onPress={() => handlePickSalonPhoto(salon)}
+                  disabled={uploadingSalonPhotoId === salon.id}
+                >
+                  {uploadingSalonPhotoId === salon.id ? (
+                    <View style={styles.salonPhotoPlaceholder}>
+                      <ActivityIndicator color="#C1683C" />
+                    </View>
+                  ) : salon.imageUrl ? (
+                    <Image source={{ uri: salon.imageUrl }} style={styles.salonPhoto} />
+                  ) : (
+                    <View style={styles.salonPhotoPlaceholder}>
+                      <Text style={styles.salonPhotoPlaceholderText}>+ Add Salon Photo</Text>
+                    </View>
+                  )}
+                  <View style={styles.salonPhotoOverlay}>
+                    <Text style={styles.salonPhotoOverlayText}>
+                      {salon.imageUrl ? "Change Photo" : "Add Photo"}
+                    </Text>
+                  </View>
+                </Pressable>
+
                 <View style={styles.salonHeaderRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.salonName}>{salon.name}</Text>
@@ -1248,6 +1314,45 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 8,
+  },
+  salonPhotoWrapper: {
+    position: "relative",
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 12,
+    height: 140,
+  },
+  salonPhoto: {
+    width: "100%",
+    height: "100%",
+  },
+  salonPhotoPlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: PAPER,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+  },
+  salonPhotoPlaceholderText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    color: CLAY,
+  },
+  salonPhotoOverlay: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    backgroundColor: "rgba(43,38,34,0.7)",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  salonPhotoOverlayText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 11,
+    color: "#fff",
   },
   customerBookingInfo: {
     fontFamily: "Manrope_600SemiBold",

@@ -62,6 +62,32 @@ function authHeaders(token: string) {
   };
 }
 
+export async function uploadSalonPhoto(
+  fileUri: string,
+  token: string
+): Promise<string> {
+  const formData = new FormData();
+  formData.append("photo", {
+    uri: fileUri,
+    name: "photo.jpg",
+    type: "image/jpeg",
+  } as any);
+
+  const response = await fetch(`${BASE_URL}/upload/salon-photo`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Failed to upload photo");
+  }
+  return data.photoUrl;
+}
+
 export async function uploadProfessionalPhoto(
   fileUri: string,
   token: string
@@ -156,6 +182,7 @@ export async function updateOwnerSalon(
     address: string;
     openTime: string;
     closeTime: string;
+    imageUrl?: string;
   },
   token: string
 ): Promise<OwnerSalon> {
