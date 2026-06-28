@@ -14,8 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../api/../data/authContext";
-import { useTheme } from "../api/../data/themeContext";
+import { useAuth } from "../../data/authContext";
+import { useTheme } from "../../data/themeContext";
 import { fetchSalonById, Review, Salon, submitSalonReview } from "../api/client";
 
 export default function SalonDetailScreen() {
