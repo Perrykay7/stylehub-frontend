@@ -171,16 +171,16 @@ export default function BookingScreen() {
         token
       );
 
-      Alert.alert(
-        "Booking Confirmed",
-        `${service.name} at ${salon.name}\n${dateLabel}, ${selectedTime}\nGHS ${discountedPrice}`,
-        [
-         {
-            text: "Done",
-            onPress: () => router.push("/(tabs)" as any),
-          },
-        ]
-      );
+      router.replace({
+        pathname: "/booking-confirmation",
+        params: {
+          salonName: salon.name,
+          serviceName: service.name,
+          dateLabel,
+          time: selectedTime,
+          price: String(discountedPrice),
+        },
+      } as any);
     } catch (err: any) {
       const message =
         err?.message?.includes("just booked") ||

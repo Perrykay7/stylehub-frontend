@@ -54,6 +54,7 @@ function RootNavigator() {
       <Stack.Screen name="settings" options={{ title: "Settings" }} />
       <Stack.Screen name="reverify-owner" options={{ title: "Re-verify Owner Access" }} />
       <Stack.Screen name="owner-dashboard" options={{ title: "Dashboard" }} />
+      <Stack.Screen name="booking-confirmation" options={{ headerShown: false }} />
     </Stack>
   );
 }
