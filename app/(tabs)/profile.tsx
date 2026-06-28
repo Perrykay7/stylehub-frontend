@@ -20,14 +20,16 @@ export default function ProfileScreen() {
         <Text style={styles.phone}>{user?.phone}</Text>
 
         <View style={styles.section}>
-          {user?.role === "owner" && (
-            <Pressable
-              style={styles.row}
-              onPress={() => router.push("/my-salon")}
-            >
-              <Text style={styles.rowText}>My Salon</Text>
-            </Pressable>
-          )}
+          <Pressable
+            style={styles.row}
+            onPress={() =>
+              user?.role === "owner"
+                ? router.push("/my-salon")
+                : router.push("/reverify-owner" as any)
+            }
+          >
+            <Text style={styles.rowText}>My Salon</Text>
+          </Pressable>
           <Pressable
             style={styles.row}
             onPress={() => router.push("/settings")}
