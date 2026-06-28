@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -48,6 +48,7 @@ function getOrdinal(n: number) {
 } 
 export default function MySalonScreen() {
   const { token } = useAuth();
+  const router = useRouter();
   const [salons, setSalons] = useState<OwnerSalon[]>([]);
   const [bookings, setBookings] = useState<OwnerBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,7 +122,11 @@ export default function MySalonScreen() {
         loadPromoCodes(s.id);
         loadProfessionals(s.id);
       });
-    } catch {
+    } catch (err: any) {
+      if (err?.status === 403 || err?.message?.includes("403") || err?.message?.toLowerCase().includes("owner")) {
+        router.replace("/reverify-owner" as any);
+        return;
+      }
       Alert.alert("Error", "Could not load your salon data.");
     } finally {
       setLoading(false);

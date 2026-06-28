@@ -25,6 +25,7 @@ type AuthContextType = {
   ) => Promise<void>;
   login: (phone: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  reverifyOwner: (inviteCode: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -86,6 +87,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await persistAuth(data.token, data.user);
   }
 
+  async function reverifyOwner(inviteCode: string) {
+    const response = await fetch(`${BASE_URL}/auth/reverify-owner`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ inviteCode }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Invalid invite code");
+    }
+    await persistAuth(data.token, data.user);
+  }
+
   async function logout() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(USER_KEY);
@@ -95,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, register, login, logout }}
+      value={{ user, token, loading, register, login, logout, reverifyOwner }}
     >
       {children}
     </AuthContext.Provider>

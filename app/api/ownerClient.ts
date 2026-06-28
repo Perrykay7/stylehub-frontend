@@ -119,7 +119,11 @@ export async function fetchOwnerSalons(token: string): Promise<OwnerSalon[]> {
   const response = await fetch(`${BASE_URL}/owner/salons`, {
     headers: authHeaders(token),
   });
-  if (!response.ok) throw new Error("Failed to fetch your salons");
+  if (!response.ok) {
+    const err = new Error("Failed to fetch your salons") as any;
+    err.status = response.status;
+    throw err;
+  }
   return response.json();
 }
 
