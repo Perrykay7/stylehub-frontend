@@ -14,9 +14,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../data/authContext";
+import { useTheme } from "../data/themeContext";
 
 export default function RegisterScreen() {
   const { register } = useAuth();
+  const { colors } = useTheme();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -58,7 +60,7 @@ export default function RegisterScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: "Sign Up", headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -70,58 +72,42 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
         >
         <Text style={styles.eyebrow}>STYLEHUB</Text>
-        <Text style={styles.title}>Create your account</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, { color: colors.text }]}>Create your account</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
           Sign up to start booking appointments
         </Text>
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
-        <Text style={styles.label}>I am a...</Text>
+        <Text style={[styles.label, { color: colors.muted }]}>I am a...</Text>
         <View style={styles.roleRow}>
           <Pressable
-            style={[
-              styles.roleOption,
-              role === "customer" && styles.roleOptionSelected,
-            ]}
+            style={[styles.roleOption, { backgroundColor: colors.card, borderColor: colors.border }, role === "customer" && styles.roleOptionSelected]}
             onPress={() => setRole("customer")}
           >
-            <Text
-              style={[
-                styles.roleText,
-                role === "customer" && styles.roleTextSelected,
-              ]}
-            >
+            <Text style={[styles.roleText, { color: colors.text }, role === "customer" && styles.roleTextSelected]}>
               Customer
             </Text>
           </Pressable>
           <Pressable
-            style={[
-              styles.roleOption,
-              role === "owner" && styles.roleOptionSelected,
-            ]}
+            style={[styles.roleOption, { backgroundColor: colors.card, borderColor: colors.border }, role === "owner" && styles.roleOptionSelected]}
             onPress={() => setRole("owner")}
           >
-            <Text
-              style={[
-                styles.roleText,
-                role === "owner" && styles.roleTextSelected,
-              ]}
-            >
+            <Text style={[styles.roleText, { color: colors.text }, role === "owner" && styles.roleTextSelected]}>
               Salon Owner
             </Text>
           </Pressable>
         </View>
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
           placeholder="Full name"
           placeholderTextColor="#A89D8F"
           value={name}
           onChangeText={setName}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
           placeholder="Phone number"
           placeholderTextColor="#A89D8F"
           keyboardType="phone-pad"
@@ -131,7 +117,7 @@ export default function RegisterScreen() {
         />
         <View style={styles.passwordWrapper}>
           <TextInput
-            style={styles.passwordInput}
+            style={[styles.passwordInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
             placeholder="Password (min. 6 characters)"
             placeholderTextColor="#A89D8F"
             secureTextEntry={!showPassword}
@@ -139,20 +125,13 @@ export default function RegisterScreen() {
             onChangeText={setPassword}
             autoCapitalize="none"
           />
-          <Pressable
-            style={styles.eyeButton}
-            onPress={() => setShowPassword((prev) => !prev)}
-          >
-            <Ionicons
-              name={showPassword ? "eye-off" : "eye"}
-              size={20}
-              color="#8C8378"
-            />
+          <Pressable style={styles.eyeButton} onPress={() => setShowPassword((prev) => !prev)}>
+            <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#8C8378" />
           </Pressable>
         </View>
         <View style={styles.passwordWrapper}>
           <TextInput
-            style={styles.passwordInput}
+            style={[styles.passwordInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
             placeholder="Confirm password"
             placeholderTextColor="#A89D8F"
             secureTextEntry={!showConfirmPassword}
@@ -160,21 +139,14 @@ export default function RegisterScreen() {
             onChangeText={setConfirmPassword}
             autoCapitalize="none"
           />
-          <Pressable
-            style={styles.eyeButton}
-            onPress={() => setShowConfirmPassword((prev) => !prev)}
-          >
-            <Ionicons
-              name={showConfirmPassword ? "eye-off" : "eye"}
-              size={20}
-              color="#8C8378"
-            />
+          <Pressable style={styles.eyeButton} onPress={() => setShowConfirmPassword((prev) => !prev)}>
+            <Ionicons name={showConfirmPassword ? "eye-off" : "eye"} size={20} color="#8C8378" />
           </Pressable>
         </View>
 
         {role === "owner" && (
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
             placeholder="Salon owner invite code"
             placeholderTextColor="#A89D8F"
             value={inviteCode}
@@ -196,8 +168,8 @@ export default function RegisterScreen() {
         </Pressable>
 
         <Pressable onPress={() => router.push("/login")}>
-          <Text style={styles.linkText}>
-            Already have an account? <Text style={styles.linkBold}>Log in</Text>
+          <Text style={[styles.linkText, { color: colors.muted }]}>
+            Already have an account? <Text style={[styles.linkBold, { color: colors.text }]}>Log in</Text>
           </Text>
         </Pressable>
         </ScrollView>

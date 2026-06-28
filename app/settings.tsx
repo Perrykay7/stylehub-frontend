@@ -7,12 +7,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../data/authContext";
+import { useTheme } from "../data/themeContext";
 import { deleteAccount } from "./api/client";
 
 const SUPPORT_PHONE = "0552213828";
@@ -54,6 +56,7 @@ For questions about these terms, contact us through the Customer Service option 
 
 export default function SettingsScreen() {
   const { user, token, logout } = useAuth();
+  const { theme, colors, toggleTheme } = useTheme();
   const [showTerms, setShowTerms] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -102,58 +105,66 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: "Settings" }} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
+          <View style={styles.row}>
+            <Text style={[styles.rowText, { color: colors.text }]}>Dark Mode</Text>
+            <Switch
+              value={theme === "dark"}
+              onValueChange={toggleTheme}
+              trackColor={{ false: "#EFE6D9", true: "#C1683C" }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
           <Pressable
             style={styles.row}
             onPress={() => setShowSupport((prev) => !prev)}
           >
-            <Text style={styles.rowText}>Customer Service</Text>
-            <Text style={styles.chevron}>{showSupport ? "−" : "+"}</Text>
+            <Text style={[styles.rowText, { color: colors.text }]}>Customer Service</Text>
+            <Text style={[styles.chevron, { color: colors.muted }]}>{showSupport ? "−" : "+"}</Text>
           </Pressable>
           {showSupport && (
             <View style={styles.expandedContent}>
-              <Text style={styles.supportText}>
+              <Text style={[styles.supportText, { color: colors.muted }]}>
                 Need help? Reach out to us directly:
               </Text>
-              <Pressable
-                onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
-              >
+              <Pressable onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}>
                 <Text style={styles.supportLink}>📞 {SUPPORT_PHONE}</Text>
               </Pressable>
-              <Pressable
-                onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
-              >
+              <Pressable onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}>
                 <Text style={styles.supportLink}>✉️ {SUPPORT_EMAIL}</Text>
               </Pressable>
             </View>
           )}
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
           <Pressable
             style={styles.row}
             onPress={() => setShowTerms((prev) => !prev)}
           >
-            <Text style={styles.rowText}>Terms of Service</Text>
-            <Text style={styles.chevron}>{showTerms ? "−" : "+"}</Text>
+            <Text style={[styles.rowText, { color: colors.text }]}>Terms of Service</Text>
+            <Text style={[styles.chevron, { color: colors.muted }]}>{showTerms ? "−" : "+"}</Text>
           </Pressable>
           {showTerms && (
             <View style={styles.expandedContent}>
-              <Text style={styles.termsText}>{TERMS_OF_SERVICE}</Text>
+              <Text style={[styles.termsText, { color: colors.muted }]}>{TERMS_OF_SERVICE}</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
           <Pressable style={styles.row} onPress={handleLogout}>
-            <Text style={styles.rowText}>Log Out</Text>
+            <Text style={[styles.rowText, { color: colors.text }]}>Log Out</Text>
           </Pressable>
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
           <Pressable
             style={styles.row}
             onPress={handleDeleteAccount}

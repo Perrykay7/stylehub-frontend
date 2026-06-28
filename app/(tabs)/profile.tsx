@@ -8,18 +8,20 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
+import { useTheme } from "../../data/themeContext";
 
 export default function ProfileScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         <Text style={styles.eyebrow}>STYLEHUB</Text>
-        <Text style={styles.name}>{user?.name}</Text>
-        <Text style={styles.phone}>{user?.phone}</Text>
+        <Text style={[styles.name, { color: colors.text }]}>{user?.name}</Text>
+        <Text style={[styles.phone, { color: colors.muted }]}>{user?.phone}</Text>
 
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
           <Pressable
             style={styles.row}
             onPress={() =>
@@ -28,13 +30,13 @@ export default function ProfileScreen() {
                 : router.push("/reverify-owner" as any)
             }
           >
-            <Text style={styles.rowText}>My Salon</Text>
+            <Text style={[styles.rowText, { color: colors.text }]}>My Salon</Text>
           </Pressable>
           <Pressable
             style={styles.row}
             onPress={() => router.push("/settings")}
           >
-            <Text style={styles.rowText}>Settings</Text>
+            <Text style={[styles.rowText, { color: colors.text }]}>Settings</Text>
           </Pressable>
         </View>
       </View>

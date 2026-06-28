@@ -13,23 +13,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../data/authContext";
-
+import { useTheme } from "../../data/themeContext";
 import { fetchSalons, Salon } from "../api/client";
 
-function RatingSeal({ rating, reviewCount }: { rating: number; reviewCount: number }) {
-  return (
-    <View style={styles.seal}>
-      <Text style={styles.sealRating}>{rating.toFixed(1)}</Text>
-      <Text style={styles.sealStar}>★</Text>
-      <Text style={styles.sealCount}>{reviewCount}</Text>
-    </View>
-  );
-}
-
 function SalonCard({ salon }: { salon: Salon }) {
+  const { colors } = useTheme();
   return (
     <Pressable
-      style={styles.card}
+      style={[styles.card, { backgroundColor: colors.card }]}
       onPress={() =>
         router.push({ pathname: "/salon/[id]", params: { id: salon.id } })
       }
@@ -41,17 +32,21 @@ function SalonCard({ salon }: { salon: Salon }) {
           contentFit="cover"
         />
         <View style={styles.sealOverlay}>
-          <RatingSeal rating={salon.rating} reviewCount={salon.reviewCount} />
+          <View style={styles.seal}>
+            <Text style={styles.sealRating}>{salon.rating.toFixed(1)}</Text>
+            <Text style={styles.sealStar}>★</Text>
+            <Text style={styles.sealCount}>{salon.reviewCount}</Text>
+          </View>
         </View>
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.name}>{salon.name}</Text>
+        <Text style={[styles.name, { color: colors.text }]}>{salon.name}</Text>
         <View style={styles.metaRow}>
           <Text style={styles.category}>{salon.category}</Text>
-          <Text style={styles.dot}>·</Text>
-          <Text style={styles.distance}>{salon.distanceKm} km</Text>
+          <Text style={[styles.dot, { color: colors.muted }]}>·</Text>
+          <Text style={[styles.distance, { color: colors.muted }]}>{salon.distanceKm} km</Text>
         </View>
-        <Text style={styles.address}>{salon.address}</Text>
+        <Text style={[styles.address, { color: colors.muted }]}>{salon.address}</Text>
       </View>
     </Pressable>
   );
@@ -59,6 +54,7 @@ function SalonCard({ salon }: { salon: Salon }) {
 
 export default function BrowseScreen() {
   const { logout, user } = useAuth();
+  const { colors } = useTheme();
   const { focusSearch } = useLocalSearchParams<{ focusSearch?: string }>();
   const searchInputRef = useRef<TextInput>(null);
 
@@ -112,25 +108,25 @@ export default function BrowseScreen() {
     <>
       <View style={styles.headerContainer}>
         <Text style={styles.eyebrow}>StyleHub</Text>
-        <Text style={styles.header}>Welcome, {user?.name?.split(" ")[0]}</Text>
-        <Text style={styles.subheader}>Nearby Salons & Spas</Text>
+        <Text style={[styles.header, { color: colors.text }]}>Welcome, {user?.name?.split(" ")[0]}</Text>
+        <Text style={[styles.subheader, { color: colors.muted }]}>Nearby Salons & Spas</Text>
         <View style={styles.headerActions}>
           <Pressable onPress={() => router.push("/my-bookings")}>
-            <Text style={styles.myBookingsLink}>My Bookings</Text>
+            <Text style={[styles.myBookingsLink, { color: colors.text }]}>My Bookings</Text>
           </Pressable>
           {user?.role === "owner" && (
             <Pressable onPress={() => router.push("/my-salon")}>
-              <Text style={styles.myBookingsLink}>My Salon</Text>
+              <Text style={[styles.myBookingsLink, { color: colors.text }]}>My Salon</Text>
             </Pressable>
           )}
           <Pressable onPress={() => router.push("/settings")}>
-            <Text style={styles.myBookingsLink}>Settings</Text>
+            <Text style={[styles.myBookingsLink, { color: colors.text }]}>Settings</Text>
           </Pressable>
         </View>
       </View>
       <TextInput
         ref={searchInputRef}
-        style={styles.searchInput}
+        style={[styles.searchInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
         placeholder="Search by name or category"
         placeholderTextColor="#A89D8F"
         value={query}
@@ -152,15 +148,10 @@ export default function BrowseScreen() {
             return (
               <Pressable
                 key={item}
-                style={[styles.chip, isSelected && styles.chipSelected]}
+                style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }, isSelected && styles.chipSelected]}
                 onPress={() => setActiveCategory(isSelected ? null : item)}
               >
-                <Text
-                  style={[
-                    styles.chipText,
-                    isSelected && styles.chipTextSelected,
-                  ]}
-                >
+                <Text style={[styles.chipText, { color: colors.text }, isSelected && styles.chipTextSelected]}>
                   {item}
                 </Text>
               </Pressable>
@@ -172,7 +163,7 @@ export default function BrowseScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {loading ? (
         <>
           {ListHeader}

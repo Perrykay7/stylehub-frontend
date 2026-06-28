@@ -12,9 +12,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../data/authContext";
+import { useTheme } from "../data/themeContext";
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { colors } = useTheme();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -39,17 +41,17 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: "Log In", headerShown: false }} />
       <View style={styles.content}>
         <Text style={styles.eyebrow}>STYLEHUB</Text>
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Log in to book your next appointment</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Welcome back</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>Log in to book your next appointment</Text>
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
           placeholder="Phone number"
           placeholderTextColor="#A89D8F"
           keyboardType="phone-pad"
@@ -59,7 +61,7 @@ export default function LoginScreen() {
         />
         <View style={styles.passwordWrapper}>
           <TextInput
-            style={styles.passwordInput}
+            style={[styles.passwordInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
             placeholder="Password"
             placeholderTextColor="#A89D8F"
             secureTextEntry={!showPassword}
@@ -99,8 +101,8 @@ export default function LoginScreen() {
         </Pressable>
 
         <Pressable onPress={() => router.push("/register")}>
-          <Text style={styles.linkText}>
-            Don't have an account? <Text style={styles.linkBold}>Sign up</Text>
+          <Text style={[styles.linkText, { color: colors.muted }]}>
+            Don't have an account? <Text style={[styles.linkBold, { color: colors.text }]}>Sign up</Text>
           </Text>
         </Pressable>
       </View>

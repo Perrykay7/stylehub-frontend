@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { AuthProvider, useAuth } from "../data/authContext";
+import { ThemeProvider } from "../data/themeContext";
 
 function RootNavigator() {
   const { user, loading } = useAuth();
@@ -74,9 +75,11 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <RootNavigator />
-      <StatusBar style="auto" />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RootNavigator />
+        <StatusBar style="auto" />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

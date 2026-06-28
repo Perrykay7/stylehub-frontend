@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
+import { useTheme } from "../../data/themeContext";
 import { Booking, cancelBooking, fetchBookings, rateProfessional } from "../api/client";
 function getAppointmentDateTime(booking: Booking) {
   return new Date(`${booking.date}T${booking.time}:00`);
@@ -35,18 +36,19 @@ function BookingItem({
   onCancel: (id: string) => void;
   onRate: (booking: Booking) => void;
 }) {
+  const { colors } = useTheme();
   const hoursUntil = getHoursUntil(booking);
   const canCancel = isUpcoming && hoursUntil >= 2;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.salonName}>{booking.salonName}</Text>
-      <Text style={styles.serviceName}>{booking.serviceName}</Text>
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <Text style={[styles.salonName, { color: colors.muted }]}>{booking.salonName}</Text>
+      <Text style={[styles.serviceName, { color: colors.text }]}>{booking.serviceName}</Text>
       {booking.professionalName && (
-        <Text style={styles.meta}>With {booking.professionalName}</Text>
+        <Text style={[styles.meta, { color: colors.muted }]}>With {booking.professionalName}</Text>
       )}
       <View style={styles.row}>
-        <Text style={styles.meta}>
+        <Text style={[styles.meta, { color: colors.muted }]}>
           {booking.dateLabel} · {booking.time}
         </Text>
         <Text style={styles.price}>GHS {booking.price}</Text>
@@ -79,6 +81,7 @@ function BookingItem({
 
 export default function MyBookingsScreen() {
   const { token } = useAuth();
+  const { colors } = useTheme();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +184,7 @@ export default function MyBookingsScreen() {
   ].filter((section) => section.data.length > 0);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: "My Bookings" }} />
       {loading ? (
         <ActivityIndicator style={styles.loading} size="large" color="#C1683C" />
@@ -204,7 +207,7 @@ export default function MyBookingsScreen() {
             />
           )}
           renderSectionHeader={({ section }) => (
-            <Text style={styles.sectionHeader}>{section.title}</Text>
+            <Text style={[styles.sectionHeader, { color: colors.text }]}>{section.title}</Text>
           )}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
@@ -225,8 +228,8 @@ export default function MyBookingsScreen() {
         onRequestClose={() => setRatingBooking(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
               Rate {ratingBooking?.professionalName}
             </Text>
             <View style={styles.starsRow}>
