@@ -9,7 +9,7 @@ import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { AuthProvider, useAuth } from "../data/authContext";
@@ -19,35 +19,32 @@ function RootNavigator() {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
-  const [onboarded, setOnboarded] = useState(false);
 
   useEffect(() => {
+    if (loading) return;
+
     SecureStore.getItemAsync("stylehub_onboarded").then((val) => {
-      setOnboarded(val === "true");
-      setCheckingOnboarding(false);
+      const isOnboarded = val === "true";
+      const inOnboarding = segments[0] === "onboarding";
+      const inAuthGroup =
+        segments[0] === "login" ||
+        segments[0] === "register" ||
+        segments[0] === "forgot-password";
+
+      if (!isOnboarded && !inOnboarding) {
+        router.replace("/onboarding" as any);
+        return;
+      }
+
+      if (isOnboarded) {
+        if (!user && !inAuthGroup) {
+          router.replace("/login");
+        } else if (user && inAuthGroup) {
+          router.replace("/(tabs)" as any);
+        }
+      }
     });
-  }, []);
-
-  useEffect(() => {
-    if (loading || checkingOnboarding) return;
-
-    if (!onboarded) {
-      router.replace("/onboarding" as any);
-      return;
-    }
-
-   const inAuthGroup =
-      segments[0] === "login" ||
-      segments[0] === "register" ||
-      segments[0] === "forgot-password";
-
-    if (!user && !inAuthGroup) {
-      router.replace("/login");
-    } else if (user && inAuthGroup) {
-      router.replace("/(tabs)" as any);
-    }
-  }, [user, loading, segments, onboarded, checkingOnboarding]);
+  }, [user, loading, segments]);
 
   if (loading) {
     return (
