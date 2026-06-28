@@ -3,7 +3,10 @@ import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -57,7 +60,15 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: "Sign Up", headerShown: false }} />
-      <View style={styles.content}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <Text style={styles.eyebrow}>STYLEHUB</Text>
         <Text style={styles.title}>Create your account</Text>
         <Text style={styles.subtitle}>
@@ -189,7 +200,8 @@ export default function RegisterScreen() {
             Already have an account? <Text style={styles.linkBold}>Log in</Text>
           </Text>
         </Pressable>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -206,9 +218,9 @@ const styles = StyleSheet.create({
     backgroundColor: PAPER,
   },
   content: {
-    flex: 1,
-    justifyContent: "center",
     paddingHorizontal: 28,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   eyebrow: {
     fontFamily: "Manrope_700Bold",
