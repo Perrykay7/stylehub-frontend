@@ -52,6 +52,7 @@ export default function OwnerDashboardScreen() {
             <StatCard label="Total Bookings" value={String(stats.totalBookings)} />
             <StatCard label="Total Revenue" value={`GHS ${stats.totalRevenue.toFixed(2)}`} />
             <StatCard label="Unique Customers" value={String(stats.totalCustomers)} />
+            <StatCard label="Avg Rating" value={stats.totalReviews > 0 ? `★ ${stats.avgRating}` : "No reviews"} sub={stats.totalReviews > 0 ? `${stats.totalReviews} reviews` : undefined} />
           </View>
 
           <Text style={[styles.sectionTitle, { color: colors.text }]}>This Month</Text>
@@ -88,6 +89,26 @@ export default function OwnerDashboardScreen() {
                       <Text style={[styles.listSub, { color: colors.muted }]}>{b.customerName} · {b.dateLabel} {b.time}</Text>
                     </View>
                     <Text style={[styles.listValue, { color: colors.clay }]}>GHS {b.price}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+          {stats.recentReviews.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Reviews</Text>
+              <View style={[styles.listCard, { backgroundColor: colors.card }]}>
+                {stats.recentReviews.map((r, i) => (
+                  <View key={i} style={[styles.listRow, { alignItems: "flex-start" }, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                        <Text style={[styles.listMain, { color: colors.text }]}>{r.customerName}</Text>
+                        <Text style={{ color: "#E0A35C", fontFamily: "Manrope_700Bold", fontSize: 13 }}>{"★".repeat(r.rating)}</Text>
+                      </View>
+                      <Text style={[styles.listSub, { color: colors.muted }]}>{r.salonName} · {r.date}</Text>
+                      <Text style={[styles.listMain, { color: colors.text, fontFamily: "Manrope_500Medium", fontSize: 13, marginTop: 4 }]}>{r.comment}</Text>
+                    </View>
                   </View>
                 ))}
               </View>

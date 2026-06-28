@@ -61,8 +61,11 @@ export type OwnerStats = {
   totalCustomers: number;
   monthlyRevenue: number;
   monthlyBookings: number;
+  avgRating: number;
+  totalReviews: number;
   topServices: { serviceName: string; bookingCount: number; revenue: number }[];
   recentBookings: { salonName: string; serviceName: string; dateLabel: string; time: string; price: number; customerName: string }[];
+  recentReviews: { customerName: string; rating: number; comment: string; date: string; salonName: string }[];
 };
 
 function authHeaders(token: string) {
