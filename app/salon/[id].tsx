@@ -3,31 +3,69 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
+    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { fetchSalonById, Salon } from "../api/client";
+import { useAuth } from "../api/../data/authContext";
+import { useTheme } from "../api/../data/themeContext";
+import { fetchSalonById, Review, Salon, submitSalonReview } from "../api/client";
 
 export default function SalonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { token } = useAuth();
+  const { colors } = useTheme();
   const [salon, setSalon] = useState<Salon | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     fetchSalonById(id)
       .then((data) => {
         setSalon(data);
+        setReviews(data.reviews);
         setError(null);
       })
       .catch(() => setError("Could not load salon details."))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function handleSubmitReview() {
+    if (reviewRating === 0) {
+      Alert.alert("Select a rating", "Please tap a star before submitting.");
+      return;
+    }
+    if (!reviewComment.trim()) {
+      Alert.alert("Add a comment", "Please write a short comment.");
+      return;
+    }
+    if (!token || !salon) return;
+    setSubmittingReview(true);
+    try {
+      const newReview = await submitSalonReview(salon.id, reviewRating, reviewComment.trim(), token);
+      setReviews((prev) => [newReview, ...prev]);
+      setShowReviewModal(false);
+      setReviewRating(0);
+      setReviewComment("");
+    } catch (err: any) {
+      Alert.alert("Could not submit", err.message || "Please try again.");
+    } finally {
+      setSubmittingReview(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -46,7 +84,7 @@ export default function SalonDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: salon.name }} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.imageWrap}>
@@ -105,24 +143,63 @@ export default function SalonDetailScreen() {
           ))}
         </View>
 
-        <View style={[styles.section, styles.lastSection]}>
-          <Text style={styles.sectionTitle}>Reviews</Text>
-          {salon.reviews.map((review) => (
-            <View key={review.id} style={styles.reviewItem}>
+        <View style={[styles.section, styles.lastSection, { backgroundColor: colors.card }]}>
+          <View style={styles.reviewsHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Reviews</Text>
+            <Pressable style={styles.writeReviewBtn} onPress={() => setShowReviewModal(true)}>
+              <Text style={styles.writeReviewBtnText}>+ Write a Review</Text>
+            </Pressable>
+          </View>
+          {reviews.length === 0 && (
+            <Text style={[styles.noReviews, { color: colors.muted }]}>No reviews yet. Be the first!</Text>
+          )}
+          {reviews.map((review) => (
+            <View key={review.id} style={[styles.reviewItem, { borderBottomColor: colors.border }]}>
               <View style={styles.reviewHeader}>
-                <Text style={styles.reviewerName}>
-                  {review.customerName}
-                </Text>
+                <Text style={[styles.reviewerName, { color: colors.text }]}>{review.customerName}</Text>
                 <View style={styles.reviewRatingPill}>
                   <Text style={styles.reviewRatingText}>★ {review.rating}</Text>
                 </View>
               </View>
-              <Text style={styles.reviewComment}>{review.comment}</Text>
-              <Text style={styles.reviewDate}>{review.date}</Text>
+              <Text style={[styles.reviewComment, { color: colors.text }]}>{review.comment}</Text>
+              <Text style={[styles.reviewDate, { color: colors.muted }]}>{review.date}</Text>
             </View>
           ))}
         </View>
       </ScrollView>
+
+      <Modal visible={showReviewModal} transparent animationType="fade" onRequestClose={() => setShowReviewModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Write a Review</Text>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Pressable key={star} onPress={() => setReviewRating(star)}>
+                  <Text style={[styles.star, star <= reviewRating && styles.starFilled]}>★</Text>
+                </Pressable>
+              ))}
+            </View>
+            <TextInput
+              style={[styles.commentInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+              placeholder="Share your experience..."
+              placeholderTextColor={colors.muted}
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              multiline
+            />
+            <Pressable
+              style={[styles.submitBtn, submittingReview && { opacity: 0.6 }]}
+              onPress={handleSubmitReview}
+              disabled={submittingReview}
+            >
+              <Text style={styles.submitBtnText}>{submittingReview ? "Submitting..." : "Submit Review"}</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowReviewModal(false)}>
+              <Text style={[styles.cancelText, { color: colors.muted }]}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -317,4 +394,73 @@ const styles = StyleSheet.create({
     color: "#A89D8F",
     marginTop: 4,
   },
+  reviewsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  writeReviewBtn: {
+    backgroundColor: CLAY,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  writeReviewBtnText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 12,
+    color: "#fff",
+  },
+  noReviews: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 14,
+    marginVertical: 12,
+    textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(43,38,34,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: 20,
+    padding: 24,
+  },
+  modalTitle: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 20,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  starsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  star: { fontSize: 36, color: "#E5DDD0" },
+  starFilled: { color: "#E0A35C" },
+  commentInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontFamily: "Manrope_500Medium",
+    minHeight: 80,
+    textAlignVertical: "top",
+    marginBottom: 16,
+  },
+  submitBtn: {
+    backgroundColor: CLAY,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  submitBtnText: { fontFamily: "Manrope_700Bold", color: "#fff", fontSize: 15 },
+  cancelText: { fontFamily: "Manrope_600SemiBold", fontSize: 14, textAlign: "center" },
 });

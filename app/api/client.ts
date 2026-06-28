@@ -225,6 +225,22 @@ export async function resetPassword(
   return data;
 }
 
+export async function submitSalonReview(
+  salonId: string,
+  rating: number,
+  comment: string,
+  token: string
+) {
+  const response = await fetch(`${BASE_URL}/salons/${salonId}/reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ rating, comment }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Could not submit review");
+  return data;
+}
+
 export async function deleteAccount(token: string) {
   const response = await fetch(`${BASE_URL}/auth/account`, {
     method: "DELETE",
