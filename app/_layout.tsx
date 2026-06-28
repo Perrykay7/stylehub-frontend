@@ -8,7 +8,8 @@ import { PlayfairDisplay_700Bold } from "@expo-google-fonts/playfair-display";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { AuthProvider, useAuth } from "../data/authContext";
@@ -18,9 +19,23 @@ function RootNavigator() {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [onboarded, setOnboarded] = useState(false);
 
   useEffect(() => {
-    if (loading) return;
+    SecureStore.getItemAsync("stylehub_onboarded").then((val) => {
+      setOnboarded(val === "true");
+      setCheckingOnboarding(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (loading || checkingOnboarding) return;
+
+    if (!onboarded) {
+      router.replace("/onboarding" as any);
+      return;
+    }
 
    const inAuthGroup =
       segments[0] === "login" ||
@@ -32,7 +47,7 @@ function RootNavigator() {
     } else if (user && inAuthGroup) {
       router.replace("/(tabs)" as any);
     }
-  }, [user, loading, segments]);
+  }, [user, loading, segments, onboarded, checkingOnboarding]);
 
   if (loading) {
     return (
@@ -55,6 +70,7 @@ function RootNavigator() {
       <Stack.Screen name="reverify-owner" options={{ title: "Re-verify Owner Access" }} />
       <Stack.Screen name="owner-dashboard" options={{ title: "Dashboard" }} />
       <Stack.Screen name="booking-confirmation" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
     </Stack>
   );
 }
