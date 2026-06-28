@@ -17,6 +17,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../data/authContext";
 import {
     addOwnerService,
+    createManualBooking,
     createOwnerProfessional,
     createOwnerPromoCode,
     createOwnerSalon,
@@ -96,6 +97,15 @@ export default function MySalonScreen() {
  const [proPhotoUrl, setProPhotoUrl] = useState("");
  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingSalonPhotoId, setUploadingSalonPhotoId] = useState<string | null>(null);
+
+  // Manual booking state
+  const [manualBookingSalonId, setManualBookingSalonId] = useState<string | null>(null);
+  const [manualServiceId, setManualServiceId] = useState<string | null>(null);
+  const [manualDate, setManualDate] = useState("");
+  const [manualTime, setManualTime] = useState("");
+  const [manualGuestName, setManualGuestName] = useState("");
+  const [manualGuestPhone, setManualGuestPhone] = useState("");
+  const [submittingManualBooking, setSubmittingManualBooking] = useState(false);
   const [proSelectedServiceIds, setProSelectedServiceIds] = useState<string[]>([]);
   const [submittingPro, setSubmittingPro] = useState(false);
   async function loadData() {
@@ -477,6 +487,58 @@ export default function MySalonScreen() {
     }
   }
 
+  async function handleCreateManualBooking(salon: OwnerSalon) {
+    if (!token || !manualServiceId) return;
+    if (!manualDate || !manualTime || !manualGuestName) {
+      Alert.alert("Missing info", "Please fill in the date, time, and customer name.");
+      return;
+    }
+
+    const service = salon.services.find((s) => s.id === manualServiceId);
+    if (!service) return;
+
+    const parsedDate = new Date(manualDate);
+    if (isNaN(parsedDate.getTime())) {
+      Alert.alert("Invalid date", "Please enter the date as YYYY-MM-DD.");
+      return;
+    }
+    const dateLabel = parsedDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
+
+    setSubmittingManualBooking(true);
+    try {
+      await createManualBooking(
+        salon.id,
+        {
+          serviceId: service.id,
+          serviceName: service.name,
+          date: manualDate,
+          dateLabel,
+          time: manualTime,
+          price: service.price,
+          guestName: manualGuestName,
+          guestPhone: manualGuestPhone || undefined,
+        },
+        token
+      );
+      setManualServiceId(null);
+      setManualDate("");
+      setManualTime("");
+      setManualGuestName("");
+      setManualGuestPhone("");
+      setManualBookingSalonId(null);
+      await loadData();
+      Alert.alert("Success", "Booking added.");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not create booking.");
+    } finally {
+      setSubmittingManualBooking(false);
+    }
+  }
+  
   async function handleDeletePromoCode(promoCodeId: string, salonId: string) {
     if (!token) return;
     try {
@@ -737,7 +799,97 @@ export default function MySalonScreen() {
                   </Pressable>
                 )}
 
-<Text style={styles.servicesLabel}>Professionals</Text>
+<Text style={styles.servicesLabel}>Walk-in / Phone Booking</Text>
+                {manualBookingSalonId === salon.id ? (
+                  <View style={styles.serviceForm}>
+                    <Text style={styles.promoTargetLabel}>Select a service</Text>
+                    {salon.services.length === 0 ? (
+                      <Text style={styles.noServices}>Add a service to this salon first.</Text>
+                    ) : (
+                      salon.services.map((service) => {
+                        const isSelected = manualServiceId === service.id;
+                        return (
+                          <Pressable
+                            key={service.id}
+                            style={styles.customerRow}
+                            onPress={() => setManualServiceId(service.id)}
+                          >
+                            <View
+                              style={[
+                                styles.checkbox,
+                                isSelected && styles.checkboxSelected,
+                              ]}
+                            >
+                              {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                            </View>
+                            <Text style={styles.customerName}>
+                              {service.name} · GHS {service.price}
+                            </Text>
+                          </Pressable>
+                        );
+                      })
+                    )}
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Date (YYYY-MM-DD)"
+                      placeholderTextColor="#A89D8F"
+                      value={manualDate}
+                      onChangeText={setManualDate}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Time (e.g. 14:30)"
+                      placeholderTextColor="#A89D8F"
+                      value={manualTime}
+                      onChangeText={setManualTime}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Customer's name"
+                      placeholderTextColor="#A89D8F"
+                      value={manualGuestName}
+                      onChangeText={setManualGuestName}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Customer's phone (optional)"
+                      placeholderTextColor="#A89D8F"
+                      value={manualGuestPhone}
+                      onChangeText={setManualGuestPhone}
+                      keyboardType="phone-pad"
+                    />
+                    <Pressable
+                      style={[
+                        styles.smallButton,
+                        submittingManualBooking && styles.buttonDisabled,
+                      ]}
+                      onPress={() => handleCreateManualBooking(salon)}
+                      disabled={submittingManualBooking}
+                    >
+                      <Text style={styles.smallButtonText}>
+                        {submittingManualBooking ? "Booking..." : "Add Booking"}
+                      </Text>
+                    </Pressable>
+                    <Pressable onPress={() => setManualBookingSalonId(null)}>
+                      <Text style={[styles.cancelButtonText, { textAlign: "center", marginTop: 4 }]}>
+                        Cancel
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    style={styles.addServiceLink}
+                    onPress={() => setManualBookingSalonId(salon.id)}
+                  >
+                    <Text style={styles.addServiceLinkText}>
+                      + Add a booking for a walk-in customer
+                    </Text>
+                  </Pressable>
+                )}
+
+                <Text style={styles.servicesLabel}>Professionals</Text>
+                
+                <Text style={styles.servicesLabel}>Professionals</Text>
                 {(professionals[salon.id] || []).map((pro) => (
                   <View key={pro.id} style={styles.serviceRow}>
                     {pro.photoUrl ? (

@@ -166,6 +166,33 @@ export async function deleteOwnerService(serviceId: string, token: string) {
   return response.json();
 }
 
+export async function createManualBooking(
+  salonId: string,
+  payload: {
+    serviceId: string;
+    serviceName: string;
+    date: string;
+    dateLabel: string;
+    time: string;
+    price: number;
+    guestName: string;
+    guestPhone?: string;
+    professionalId?: string;
+  },
+  token: string
+): Promise<OwnerBooking> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/manual-booking`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Failed to create booking");
+  }
+  return data;
+}
+
 export async function fetchOwnerBookings(token: string): Promise<OwnerBooking[]> {
   const response = await fetch(`${BASE_URL}/owner/bookings`, {
     headers: authHeaders(token),
