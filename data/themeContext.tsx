@@ -23,7 +23,7 @@ export const lightColors = {
   sectionBg: "#ffffff",
 };
 
-export const darkColors = {
+export const darkColors: typeof lightColors = {
   background: "#1A1512",
   card: "#2A2118",
   text: "#F0EAE2",

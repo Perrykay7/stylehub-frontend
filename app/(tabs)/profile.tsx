@@ -22,6 +22,11 @@ export default function ProfileScreen() {
         <Text style={[styles.phone, { color: colors.muted }]}>{user?.phone}</Text>
 
         <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
+          {user?.role === "owner" && (
+            <Pressable style={styles.row} onPress={() => router.push("/owner-dashboard" as any)}>
+              <Text style={[styles.rowText, { color: colors.text }]}>Dashboard</Text>
+            </Pressable>
+          )}
           <Pressable
             style={styles.row}
             onPress={() =>

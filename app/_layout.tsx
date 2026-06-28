@@ -53,6 +53,7 @@ function RootNavigator() {
       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ title: "Settings" }} />
       <Stack.Screen name="reverify-owner" options={{ title: "Re-verify Owner Access" }} />
+      <Stack.Screen name="owner-dashboard" options={{ title: "Dashboard" }} />
     </Stack>
   );
 }

@@ -55,6 +55,16 @@ export type PromoCode = {
   recipients: Customer[];
 };
 
+export type OwnerStats = {
+  totalBookings: number;
+  totalRevenue: number;
+  totalCustomers: number;
+  monthlyRevenue: number;
+  monthlyBookings: number;
+  topServices: { serviceName: string; bookingCount: number; revenue: number }[];
+  recentBookings: { salonName: string; serviceName: string; dateLabel: string; time: string; price: number; customerName: string }[];
+};
+
 function authHeaders(token: string) {
   return {
     "Content-Type": "application/json",
@@ -113,6 +123,14 @@ export async function uploadProfessionalPhoto(
     throw new Error(data?.error || "Failed to upload photo");
   }
   return data.photoUrl;
+}
+
+export async function fetchOwnerStats(token: string): Promise<OwnerStats> {
+  const response = await fetch(`${BASE_URL}/owner/stats`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch stats");
+  return response.json();
 }
 
 export async function fetchOwnerSalons(token: string): Promise<OwnerSalon[]> {
