@@ -1,9 +1,11 @@
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   SectionList,
   StyleSheet,
@@ -15,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
 import { useTheme } from "../../data/themeContext";
-import { Booking, cancelBooking, fetchBookings, rateProfessional } from "../api/client";
+import { Booking, cancelBooking, fetchBookings, rateProfessional } from "../../api/client";
 function getAppointmentDateTime(booking: Booking) {
   return new Date(`${booking.date}T${booking.time}:00`);
 }
@@ -40,12 +42,23 @@ function BookingItem({
   const hoursUntil = getHoursUntil(booking);
   const canCancel = isUpcoming && hoursUntil >= 2;
 
+  function handleRebook() {
+    router.push({
+      pathname: "/booking",
+      params: { salonId: booking.salonId, serviceId: booking.serviceId },
+    });
+  }
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
       <Text style={[styles.salonName, { color: colors.muted }]}>{booking.salonName}</Text>
       <Text style={[styles.serviceName, { color: colors.text }]}>{booking.serviceName}</Text>
-      {booking.professionalName && (
+      {booking.professionalId ? (
         <Text style={[styles.meta, { color: colors.muted }]}>With {booking.professionalName}</Text>
+      ) : (
+        booking.noPreference && (
+          <Text style={[styles.meta, { color: colors.muted }]}>Finding a professional for you…</Text>
+        )
       )}
       <View style={styles.row}>
         <Text style={[styles.meta, { color: colors.muted }]}>
@@ -67,6 +80,12 @@ function BookingItem({
             Cancellations must be made at least 2 hours before your appointment.
           </Text>
         ))}
+
+      {!isUpcoming && (
+        <Pressable style={styles.rebookButton} onPress={handleRebook}>
+          <Text style={styles.rebookButtonText}>Rebook</Text>
+        </Pressable>
+      )}
 
       {!isUpcoming && booking.professionalId && !booking.hasRating && (
         <Pressable style={styles.rateButton} onPress={() => onRate(booking)}>
@@ -227,7 +246,10 @@ export default function MyBookingsScreen() {
         animationType="fade"
         onRequestClose={() => setRatingBooking(null)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
               Rate {ratingBooking?.professionalName}
@@ -267,7 +289,7 @@ export default function MyBookingsScreen() {
               <Text style={styles.modalCancelText}>Cancel</Text>
             </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -341,6 +363,18 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_700Bold",
     fontSize: 14,
     color: CLAY,
+  },
+  rebookButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 12,
+    backgroundColor: "#C1683C",
+  },
+  rebookButtonText: {
+    fontFamily: "Manrope_700Bold",
+    color: "#fff",
+    fontSize: 13,
   },
   cancelButton: {
     marginTop: 14,

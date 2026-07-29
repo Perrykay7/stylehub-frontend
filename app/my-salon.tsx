@@ -17,7 +17,12 @@ import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../data/authContext";
 import {
     addOwnerService,
+    announceToCustomers,
+    blockSlot,
     createManualBooking,
+    fetchSalonHours,
+    SalonHour,
+    updateSalonHours,
     createOwnerProfessional,
     createOwnerPromoCode,
     createOwnerSalon,
@@ -26,6 +31,8 @@ import {
     deleteOwnerPromoCode,
     deleteOwnerSalon,
     deleteOwnerService,
+    updateOwnerPromoCode,
+    fetchBlockedSlots,
     fetchOwnerBookings,
     fetchOwnerCustomers,
     fetchOwnerProfessionals,
@@ -35,11 +42,12 @@ import {
     OwnerSalon,
     Professional,
     PromoCode,
+    unblockSlot,
     updateOwnerSalon,
     updateOwnerService,
     uploadProfessionalPhoto,
     uploadSalonPhoto,
-} from "./api/ownerClient";
+} from "../api/ownerClient";
 
 function getOrdinal(n: number) {
   const s = ["th", "st", "nd", "rd"];
@@ -65,6 +73,7 @@ export default function MySalonScreen() {
   const [serviceName, setServiceName] = useState("");
   const [serviceDuration, setServiceDuration] = useState("");
   const [servicePrice, setServicePrice] = useState("");
+  const [serviceCategory, setServiceCategory] = useState("");
   const [submittingService, setSubmittingService] = useState(false);
 
   const [editingSalonId, setEditingSalonId] = useState<string | null>(null);
@@ -83,9 +92,12 @@ export default function MySalonScreen() {
   const [submittingServiceEdit, setSubmittingServiceEdit] = useState(false);
 // Promo code state
   const [promoCodes, setPromoCodes] = useState<Record<string, PromoCode[]>>({});
-  const [promoFormSalonId, setPromoFormSalonId] = useState<string | null>(null);
-  const [promoCode, setPromoCode] = useState("");
+  const [customersSectionSalonId, setCustomersSectionSalonId] = useState<string | null>(null);
   const [promoDiscount, setPromoDiscount] = useState("");
+  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
+  const [editPromoDiscount, setEditPromoDiscount] = useState("");
+  const [editPromoExpiry, setEditPromoExpiry] = useState("");
+  const [submittingPromoEdit, setSubmittingPromoEdit] = useState(false);
   const [promoExpiry, setPromoExpiry] = useState("");
   const [submittingPromo, setSubmittingPromo] = useState(false);
  const [customers, setCustomers] = useState<Record<string, Customer[]>>({});
@@ -109,6 +121,83 @@ export default function MySalonScreen() {
   const [submittingManualBooking, setSubmittingManualBooking] = useState(false);
   const [proSelectedServiceIds, setProSelectedServiceIds] = useState<string[]>([]);
   const [submittingPro, setSubmittingPro] = useState(false);
+
+  // Announce state
+  const [announceSalonId, setAnnounceSalonId] = useState<string | null>(null);
+  const [announceTitle, setAnnounceTitle] = useState("");
+  const [announceMessage, setAnnounceMessage] = useState("");
+  const [sendingAnnounce, setSendingAnnounce] = useState(false);
+
+  async function handleAnnounce(salonId: string) {
+    if (!token || !announceTitle.trim() || !announceMessage.trim()) {
+      Alert.alert("Missing info", "Please enter a title and message.");
+      return;
+    }
+    setSendingAnnounce(true);
+    try {
+      const result = await announceToCustomers(salonId, announceTitle.trim(), announceMessage.trim(), token);
+      Alert.alert("Sent!", `Announcement sent to ${result.sent} customer${result.sent !== 1 ? "s" : ""}.`);
+      setAnnounceSalonId(null);
+      setAnnounceTitle("");
+      setAnnounceMessage("");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not send announcement.");
+    } finally {
+      setSendingAnnounce(false);
+    }
+  }
+
+  // Working hours state
+  const [hoursSalonId, setHoursSalonId] = useState<string | null>(null);
+  const [salonHours, setSalonHours] = useState<SalonHour[]>([]);
+  const [editingHours, setEditingHours] = useState<{ dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean }[]>([]);
+  const [savingHours, setSavingHours] = useState(false);
+
+  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  async function loadSalonHours(salonId: string) {
+    if (!token) return;
+    try {
+      const data = await fetchSalonHours(salonId, token);
+      setSalonHours(data);
+      // Build editable state — fill missing days with defaults from salon open/close
+      const salon = salons.find((s) => s.id === salonId);
+      const defaults = Array.from({ length: 7 }, (_, i) => {
+        const found = data.find((h) => h.dayOfWeek === i);
+        return {
+          dayOfWeek: i,
+          openTime: found?.openTime || salon?.openTime || "09:00",
+          closeTime: found?.closeTime || salon?.closeTime || "18:00",
+          isClosed: found ? found.isClosed === 1 : false,
+        };
+      });
+      setEditingHours(defaults);
+    } catch {
+      Alert.alert("Error", "Could not load working hours.");
+    }
+  }
+
+  async function handleSaveHours(salonId: string) {
+    if (!token) return;
+    setSavingHours(true);
+    try {
+      await updateSalonHours(salonId, editingHours, token);
+      Alert.alert("Saved", "Working hours updated.");
+      setHoursSalonId(null);
+    } catch {
+      Alert.alert("Error", "Could not save hours.");
+    } finally {
+      setSavingHours(false);
+    }
+  }
+
+  // Blocked slots state
+  const [availabilitySalonId, setAvailabilitySalonId] = useState<string | null>(null);
+  const [availabilityDate, setAvailabilityDate] = useState("");
+  const [blockedSlots, setBlockedSlots] = useState<{ id: string; time: string }[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [togglingSlot, setTogglingSlot] = useState<string | null>(null);
+
   async function loadData() {
     if (!token) return;
     try {
@@ -123,8 +212,8 @@ export default function MySalonScreen() {
         loadProfessionals(s.id);
       });
     } catch (err: any) {
-      if (err?.status === 403 || err?.message?.includes("403") || err?.message?.toLowerCase().includes("owner")) {
-        router.replace("/reverify-owner" as any);
+      if (err?.status === 403) {
+        router.replace({ pathname: "/reverify", params: { role: "owner" } } as any);
         return;
       }
       Alert.alert("Error", "Could not load your salon data.");
@@ -239,12 +328,13 @@ export default function MySalonScreen() {
     try {
       await addOwnerService(
         salonId,
-        { name: serviceName, durationMins: duration, price },
+        { name: serviceName, durationMins: duration, price, category: serviceCategory || undefined },
         token
       );
       setServiceName("");
       setServiceDuration("");
       setServicePrice("");
+      setServiceCategory("");
       setServiceFormSalonId(null);
       await loadData();
     } catch {
@@ -451,11 +541,26 @@ export default function MySalonScreen() {
     );
   }
 
+  function getActivePromoForCustomer(salonId: string, customerId: string) {
+    const now = new Date();
+    return (
+      (promoCodes[salonId] || []).find(
+        (promo) =>
+          promo.recipients.some((r) => r.id === customerId) &&
+          (!promo.expiresAt || new Date(promo.expiresAt) > now)
+      ) || null
+    );
+  }
+
   async function handleCreatePromoCode(salonId: string) {
     if (!token) return;
     const discount = parseInt(promoDiscount, 10);
-    if (!promoCode || !discount) {
-      Alert.alert("Missing info", "Please enter a code and discount percent.");
+    if (!discount) {
+      Alert.alert("Missing info", "Please enter a discount percent.");
+      return;
+    }
+    if (selectedCustomerIds.length === 0) {
+      Alert.alert("Select customers", "Please select at least one customer to give a promo to.");
       return;
     }
     let expiresAtIso: string | undefined;
@@ -469,26 +574,67 @@ export default function MySalonScreen() {
     }
     setSubmittingPromo(true);
     try {
-     await createOwnerPromoCode(
+      await createOwnerPromoCode(
         salonId,
         {
-          code: promoCode.toUpperCase(),
           discountPercent: discount,
           expiresAt: expiresAtIso,
           userIds: selectedCustomerIds,
         },
         token
       );
-      setPromoCode("");
       setPromoDiscount("");
       setPromoExpiry("");
       setSelectedCustomerIds([]);
-      setPromoFormSalonId(null);
       await loadPromoCodes(salonId);
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Could not create promo code.");
+      Alert.alert("Error", err.message || "Could not give promo.");
     } finally {
       setSubmittingPromo(false);
+    }
+  }
+
+  async function handleRemoveCustomerPromo(customerId: string, salonId: string) {
+    const promo = getActivePromoForCustomer(salonId, customerId);
+    if (!promo) return;
+    await handleDeletePromoCode(promo.id, salonId);
+  }
+
+  function startEditingPromo(promo: PromoCode) {
+    setEditingPromoId(promo.id);
+    setEditPromoDiscount(String(promo.discountPercent));
+    setEditPromoExpiry(promo.expiresAt ? promo.expiresAt.slice(0, 10) : "");
+  }
+
+  async function handleSavePromoEdit(promoId: string, salonId: string) {
+    if (!token) return;
+    const discount = parseInt(editPromoDiscount, 10);
+    if (!discount) {
+      Alert.alert("Missing info", "Please enter a discount percent.");
+      return;
+    }
+    let expiresAtIso: string | undefined;
+    if (editPromoExpiry) {
+      const parsed = new Date(editPromoExpiry);
+      if (isNaN(parsed.getTime())) {
+        Alert.alert("Invalid date", "Please enter the expiry date as YYYY-MM-DD.");
+        return;
+      }
+      expiresAtIso = parsed.toISOString();
+    }
+    setSubmittingPromoEdit(true);
+    try {
+      await updateOwnerPromoCode(
+        promoId,
+        { discountPercent: discount, expiresAt: expiresAtIso },
+        token
+      );
+      setEditingPromoId(null);
+      await loadPromoCodes(salonId);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not update promo.");
+    } finally {
+      setSubmittingPromoEdit(false);
     }
   }
 
@@ -551,6 +697,56 @@ export default function MySalonScreen() {
       await loadPromoCodes(salonId);
     } catch {
       Alert.alert("Error", "Could not delete promo code.");
+    }
+  }
+
+  function generateTimeSlots(openTime: string, closeTime: string): string[] {
+    const slots: string[] = [];
+    const [startH, startM] = openTime.split(":").map(Number);
+    const [endH, endM] = closeTime.split(":").map(Number);
+    let current = startH * 60 + startM;
+    const end = endH * 60 + endM;
+    while (current < end) {
+      const h = Math.floor(current / 60).toString().padStart(2, "0");
+      const m = (current % 60).toString().padStart(2, "0");
+      slots.push(`${h}:${m}`);
+      current += 30;
+    }
+    return slots;
+  }
+
+  async function handleLoadBlockedSlots(salonId: string) {
+    if (!token || !availabilityDate) {
+      Alert.alert("Missing date", "Please enter a date first (YYYY-MM-DD).");
+      return;
+    }
+    setLoadingSlots(true);
+    try {
+      const data = await fetchBlockedSlots(salonId, availabilityDate, token);
+      setBlockedSlots(data);
+    } catch {
+      Alert.alert("Error", "Could not load blocked slots.");
+    } finally {
+      setLoadingSlots(false);
+    }
+  }
+
+  async function handleToggleSlot(salonId: string, time: string) {
+    if (!token || !availabilityDate) return;
+    setTogglingSlot(time);
+    try {
+      const isBlocked = blockedSlots.some((s) => s.time === time);
+      if (isBlocked) {
+        await unblockSlot(salonId, availabilityDate, time, token);
+        setBlockedSlots((prev) => prev.filter((s) => s.time !== time));
+      } else {
+        const result = await blockSlot(salonId, availabilityDate, time, token);
+        setBlockedSlots((prev) => [...prev, result]);
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not update slot.");
+    } finally {
+      setTogglingSlot(null);
     }
   }
 
@@ -740,7 +936,14 @@ export default function MySalonScreen() {
                   ) : (
                     <View key={service.id} style={styles.serviceRow}>
                       <View style={styles.serviceInfo}>
-                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <Text style={styles.serviceName}>{service.name}</Text>
+                          {service.category ? (
+                            <View style={styles.categoryBadge}>
+                              <Text style={styles.categoryBadgeText}>{service.category}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                         <Text style={styles.serviceMeta}>
                           {service.durationMins} min · GHS {service.price}
                         </Text>
@@ -781,6 +984,13 @@ export default function MySalonScreen() {
                       keyboardType="numeric"
                       value={servicePrice}
                       onChangeText={setServicePrice}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Category (e.g. Hair, Nails) — optional"
+                      placeholderTextColor="#A89D8F"
+                      value={serviceCategory}
+                      onChangeText={setServiceCategory}
                     />
                     <Pressable
                       style={[
@@ -893,8 +1103,6 @@ export default function MySalonScreen() {
                 )}
 
                 <Text style={styles.servicesLabel}>Professionals</Text>
-                
-                <Text style={styles.servicesLabel}>Professionals</Text>
                 {(professionals[salon.id] || []).map((pro) => (
                   <View key={pro.id} style={styles.serviceRow}>
                     {pro.photoUrl ? (
@@ -911,6 +1119,13 @@ export default function MySalonScreen() {
                       <Text style={styles.serviceMeta}>
                         {pro.services.map((s) => s.name).join(", ") || "No services assigned"}
                       </Text>
+                      {pro.userId ? (
+                        <Text style={styles.promoBadge}>✓ Account claimed</Text>
+                      ) : pro.claimCode ? (
+                        <Text style={styles.serviceMeta}>
+                          Claim code: <Text style={{ fontFamily: "Manrope_700Bold" }}>{pro.claimCode}</Text>
+                        </Text>
+                      ) : null}
                     </View>
                     <Pressable
                       onPress={() => handleDeleteProfessional(pro.id, salon.id)}
@@ -996,71 +1211,29 @@ export default function MySalonScreen() {
                   </Pressable>
                 )}
 
-                <Text style={styles.servicesLabel}>Promo Codes</Text>
-                {(promoCodes[salon.id] || []).length === 0 && (
-                  <Text style={styles.noServices}>No promo codes yet.</Text>
-                )}
-                {(promoCodes[salon.id] || []).map((promo) => {
-                  const isExpired =
-                    promo.expiresAt && new Date(promo.expiresAt) < new Date();
-                  return (
-                    <View key={promo.id} style={styles.serviceRow}>
-                      <View style={styles.serviceInfo}>
-                        <Text style={styles.serviceName}>{promo.code}</Text>
-                        <Text style={styles.serviceMeta}>
-                          {promo.discountPercent}% off
-                          {promo.expiresAt
-                            ? ` · Expires ${new Date(promo.expiresAt).toLocaleDateString()}`
-                            : ""}
-                        </Text>
-                        <Text style={styles.serviceMeta}>
-                          {promo.recipients.length > 0
-                            ? `Limited to ${promo.recipients.length} customer${
-                                promo.recipients.length > 1 ? "s" : ""
-                              }`
-                            : "Public"}
-                        </Text>
-                        {isExpired && (
-                          <Text style={styles.expiredBadge}>Expired</Text>
-                        )}
-                      </View>
-                      <Pressable
-                        onPress={() => handleDeletePromoCode(promo.id, salon.id)}
-                      >
-                        <Text style={styles.deleteText}>Remove</Text>
-                      </Pressable>
-                    </View>
-                  );
-                })}
+                <Pressable
+                  style={styles.addServiceLink}
+                  onPress={() => {
+                    if (customersSectionSalonId === salon.id) {
+                      setCustomersSectionSalonId(null);
+                    } else {
+                      setCustomersSectionSalonId(salon.id);
+                      setSelectedCustomerIds([]);
+                      loadCustomers(salon.id);
+                      loadPromoCodes(salon.id);
+                    }
+                  }}
+                >
+                  <Text style={styles.addServiceLinkText}>
+                    {customersSectionSalonId === salon.id ? "▲ Hide Customers" : "👥 Customers & Promos"}
+                  </Text>
+                </Pressable>
 
-                {promoFormSalonId === salon.id ? (
+                {customersSectionSalonId === salon.id && (
                   <View style={styles.serviceForm}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Promo code (e.g. SUMMER20)"
-                      placeholderTextColor="#A89D8F"
-                      autoCapitalize="characters"
-                      value={promoCode}
-                      onChangeText={setPromoCode}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Discount percent (e.g. 20)"
-                      placeholderTextColor="#A89D8F"
-                      keyboardType="numeric"
-                      value={promoDiscount}
-                      onChangeText={setPromoDiscount}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Expiry date (YYYY-MM-DD, optional)"
-                      placeholderTextColor="#A89D8F"
-                      value={promoExpiry}
-                      onChangeText={setPromoExpiry}
-                    />
-
                     <Text style={styles.promoTargetLabel}>
-                      Limit to specific customers (optional)
+                      Select customers, then give them a discount — it's applied automatically
+                      the next time they book here. No code to share.
                     </Text>
                     {(customers[salon.id] || []).length === 0 ? (
                       <Text style={styles.noServices}>
@@ -1069,58 +1242,318 @@ export default function MySalonScreen() {
                     ) : (
                       (customers[salon.id] || []).map((customer) => {
                         const isSelected = selectedCustomerIds.includes(customer.id);
+                        const activePromo = getActivePromoForCustomer(salon.id, customer.id);
+                        const isEditingThisPromo =
+                          activePromo && editingPromoId === activePromo.id;
                         return (
-                          <Pressable
-                            key={customer.id}
-                            style={styles.customerRow}
-                            onPress={() => toggleCustomerSelection(customer.id)}
-                          >
-                            <View
-                              style={[
-                                styles.checkbox,
-                                isSelected && styles.checkboxSelected,
-                              ]}
+                          <View key={customer.id}>
+                            <Pressable
+                              style={styles.customerRow}
+                              onPress={() => toggleCustomerSelection(customer.id)}
                             >
-                              {isSelected && <Text style={styles.checkmark}>✓</Text>}
-                            </View>
-                            <View>
-                              <Text style={styles.customerName}>{customer.name}</Text>
-                              <Text style={styles.customerPhone}>
-                                {customer.phone} · {customer.bookingCount} booking
-                                {customer.bookingCount !== 1 ? "s" : ""}
-                              </Text>
-                            </View>
-                          </Pressable>
+                              <View
+                                style={[
+                                  styles.checkbox,
+                                  isSelected && styles.checkboxSelected,
+                                ]}
+                              >
+                                {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.customerName}>{customer.name}</Text>
+                                <Text style={styles.customerPhone}>
+                                  {customer.phone} · {customer.bookingCount} booking
+                                  {customer.bookingCount !== 1 ? "s" : ""}
+                                </Text>
+                              </View>
+                              {activePromo && !isEditingThisPromo && (
+                                <View
+                                  style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
+                                >
+                                  <Text style={styles.promoBadge}>
+                                    🎁 {activePromo.discountPercent}% off
+                                  </Text>
+                                  <Pressable onPress={() => startEditingPromo(activePromo)}>
+                                    <Text style={styles.editText}>Edit</Text>
+                                  </Pressable>
+                                  <Pressable
+                                    onPress={() =>
+                                      handleRemoveCustomerPromo(customer.id, salon.id)
+                                    }
+                                  >
+                                    <Text style={styles.deleteText}>Remove</Text>
+                                  </Pressable>
+                                </View>
+                              )}
+                            </Pressable>
+
+                            {isEditingThisPromo && (
+                              <View style={styles.serviceForm}>
+                                <TextInput
+                                  style={styles.input}
+                                  placeholder="Discount percent (e.g. 20)"
+                                  placeholderTextColor="#A89D8F"
+                                  keyboardType="numeric"
+                                  value={editPromoDiscount}
+                                  onChangeText={setEditPromoDiscount}
+                                />
+                                <TextInput
+                                  style={styles.input}
+                                  placeholder="Expiry date (YYYY-MM-DD, optional)"
+                                  placeholderTextColor="#A89D8F"
+                                  value={editPromoExpiry}
+                                  onChangeText={setEditPromoExpiry}
+                                />
+                                <View style={{ flexDirection: "row", gap: 8 }}>
+                                  <Pressable
+                                    style={[
+                                      styles.smallButton,
+                                      { flex: 1 },
+                                      submittingPromoEdit && styles.buttonDisabled,
+                                    ]}
+                                    onPress={() => handleSavePromoEdit(activePromo!.id, salon.id)}
+                                    disabled={submittingPromoEdit}
+                                  >
+                                    <Text style={styles.smallButtonText}>
+                                      {submittingPromoEdit ? "Saving..." : "Save"}
+                                    </Text>
+                                  </Pressable>
+                                  <Pressable
+                                    style={[styles.smallButton, styles.cancelButton, { flex: 1 }]}
+                                    onPress={() => setEditingPromoId(null)}
+                                  >
+                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                  </Pressable>
+                                </View>
+                              </View>
+                            )}
+                          </View>
                         );
                       })
                     )}
 
-                    <Pressable
-                      style={[
-                        styles.smallButton,
-                        submittingPromo && styles.buttonDisabled,
-                      ]}
-                      onPress={() => handleCreatePromoCode(salon.id)}
-                      disabled={submittingPromo}
-                    >
-                      <Text style={styles.smallButtonText}>
-                        {submittingPromo ? "Adding..." : "Add Promo Code"}
-                      </Text>
-                    </Pressable>
+                    {selectedCustomerIds.length > 0 && (
+                      <>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Discount percent (e.g. 20)"
+                          placeholderTextColor="#A89D8F"
+                          keyboardType="numeric"
+                          value={promoDiscount}
+                          onChangeText={setPromoDiscount}
+                        />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Expiry date (YYYY-MM-DD, optional)"
+                          placeholderTextColor="#A89D8F"
+                          value={promoExpiry}
+                          onChangeText={setPromoExpiry}
+                        />
+                        <Pressable
+                          style={[
+                            styles.smallButton,
+                            submittingPromo && styles.buttonDisabled,
+                          ]}
+                          onPress={() => handleCreatePromoCode(salon.id)}
+                          disabled={submittingPromo}
+                        >
+                          <Text style={styles.smallButtonText}>
+                            {submittingPromo
+                              ? "Giving Promo..."
+                              : `Give ${selectedCustomerIds.length} Customer${
+                                  selectedCustomerIds.length > 1 ? "s" : ""
+                                } a Promo`}
+                          </Text>
+                        </Pressable>
+                      </>
+                    )}
                   </View>
-                ) : (
-                  <Pressable
-                    style={styles.addServiceLink}
-                    onPress={() => {
-                      setPromoFormSalonId(salon.id);
-                      setSelectedCustomerIds([]);
-                      loadCustomers(salon.id);
-                    }}
-                  >
-                    <Text style={styles.addServiceLinkText}>+ Add a promo code</Text>
-                  </Pressable>
                 )}
               </>
+            )}
+
+            {/* Announce to Customers */}
+            <Pressable
+              style={styles.addServiceLink}
+              onPress={() => {
+                if (announceSalonId === salon.id) {
+                  setAnnounceSalonId(null);
+                } else {
+                  setAnnounceSalonId(salon.id);
+                  setAnnounceTitle("");
+                  setAnnounceMessage("");
+                }
+              }}
+            >
+              <Text style={styles.addServiceLinkText}>
+                {announceSalonId === salon.id ? "▲ Hide Announcement" : "📢 Announce to Customers"}
+              </Text>
+            </Pressable>
+
+            {announceSalonId === salon.id && (
+              <View style={styles.serviceForm}>
+                <Text style={styles.promoTargetLabel}>Send a message to all your customers</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Title (e.g. Closed this weekend)"
+                  placeholderTextColor="#A89D8F"
+                  value={announceTitle}
+                  onChangeText={setAnnounceTitle}
+                />
+                <TextInput
+                  style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+                  placeholder="Message..."
+                  placeholderTextColor="#A89D8F"
+                  value={announceMessage}
+                  onChangeText={setAnnounceMessage}
+                  multiline
+                />
+                <Pressable
+                  style={[styles.smallButton, sendingAnnounce && styles.buttonDisabled]}
+                  onPress={() => handleAnnounce(salon.id)}
+                  disabled={sendingAnnounce}
+                >
+                  <Text style={styles.smallButtonText}>{sendingAnnounce ? "Sending..." : "Send Announcement"}</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Working Hours */}
+            <Pressable
+              style={styles.addServiceLink}
+              onPress={() => {
+                if (hoursSalonId === salon.id) {
+                  setHoursSalonId(null);
+                } else {
+                  setHoursSalonId(salon.id);
+                  loadSalonHours(salon.id);
+                }
+              }}
+            >
+              <Text style={styles.addServiceLinkText}>
+                {hoursSalonId === salon.id ? "▲ Hide Working Hours" : "🕐 Working Hours"}
+              </Text>
+            </Pressable>
+
+            {hoursSalonId === salon.id && (
+              <View style={styles.serviceForm}>
+                <Text style={styles.promoTargetLabel}>Set open/close times per day</Text>
+                {editingHours.map((h) => (
+                  <View key={h.dayOfWeek} style={{ marginBottom: 12 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <Text style={[styles.promoTargetLabel, { marginBottom: 0 }]}>{DAY_NAMES[h.dayOfWeek]}</Text>
+                      <Pressable
+                        onPress={() =>
+                          setEditingHours((prev) =>
+                            prev.map((d) => d.dayOfWeek === h.dayOfWeek ? { ...d, isClosed: !d.isClosed } : d)
+                          )
+                        }
+                        style={[styles.smallButton, { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: h.isClosed ? "#888" : "#C1683C" }]}
+                      >
+                        <Text style={styles.smallButtonText}>{h.isClosed ? "Closed" : "Open"}</Text>
+                      </Pressable>
+                    </View>
+                    {!h.isClosed && (
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <TextInput
+                          style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                          placeholder="Open (09:00)"
+                          placeholderTextColor="#A89D8F"
+                          value={h.openTime}
+                          onChangeText={(v) =>
+                            setEditingHours((prev) =>
+                              prev.map((d) => d.dayOfWeek === h.dayOfWeek ? { ...d, openTime: v } : d)
+                            )
+                          }
+                        />
+                        <TextInput
+                          style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                          placeholder="Close (18:00)"
+                          placeholderTextColor="#A89D8F"
+                          value={h.closeTime}
+                          onChangeText={(v) =>
+                            setEditingHours((prev) =>
+                              prev.map((d) => d.dayOfWeek === h.dayOfWeek ? { ...d, closeTime: v } : d)
+                            )
+                          }
+                        />
+                      </View>
+                    )}
+                  </View>
+                ))}
+                <Pressable
+                  style={[styles.smallButton, savingHours && styles.buttonDisabled]}
+                  onPress={() => handleSaveHours(salon.id)}
+                  disabled={savingHours}
+                >
+                  <Text style={styles.smallButtonText}>{savingHours ? "Saving..." : "Save Hours"}</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Manage Availability */}
+            <Pressable
+              style={styles.addServiceLink}
+              onPress={() => {
+                if (availabilitySalonId === salon.id) {
+                  setAvailabilitySalonId(null);
+                } else {
+                  setAvailabilitySalonId(salon.id);
+                  setAvailabilityDate("");
+                  setBlockedSlots([]);
+                }
+              }}
+            >
+              <Text style={styles.addServiceLinkText}>
+                {availabilitySalonId === salon.id ? "▲ Hide Availability" : "🗓 Manage Availability"}
+              </Text>
+            </Pressable>
+
+            {availabilitySalonId === salon.id && (
+              <View style={styles.serviceForm}>
+                <Text style={styles.promoTargetLabel}>Block / unblock time slots</Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Date (YYYY-MM-DD)"
+                    placeholderTextColor="#A89D8F"
+                    value={availabilityDate}
+                    onChangeText={setAvailabilityDate}
+                  />
+                  <Pressable
+                    style={[styles.smallButton, { paddingHorizontal: 12 }]}
+                    onPress={() => handleLoadBlockedSlots(salon.id)}
+                    disabled={loadingSlots}
+                  >
+                    <Text style={styles.smallButtonText}>{loadingSlots ? "..." : "Load"}</Text>
+                  </Pressable>
+                </View>
+
+                {availabilityDate !== "" && (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                    {generateTimeSlots(salon.openTime, salon.closeTime).map((time) => {
+                      const isBlocked = blockedSlots.some((s) => s.time === time);
+                      const isToggling = togglingSlot === time;
+                      return (
+                        <Pressable
+                          key={time}
+                          style={[
+                            styles.slotChip,
+                            isBlocked && styles.slotChipBlocked,
+                          ]}
+                          onPress={() => handleToggleSlot(salon.id, time)}
+                          disabled={!!togglingSlot}
+                        >
+                          <Text style={[styles.slotChipText, isBlocked && styles.slotChipTextBlocked]}>
+                            {isToggling ? "..." : time}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+                <Text style={styles.slotHint}>Tap a slot to block it. Tap again to unblock.</Text>
+              </View>
             )}
           </View>
         ))}
@@ -1196,8 +1629,12 @@ export default function MySalonScreen() {
                 {booking.customerName} · {booking.customerPhone} ·{" "}
                 {getOrdinal(booking.customerVisitCount)} visit
               </Text>
-              {booking.professionalName && (
+              {booking.professionalId ? (
                 <Text style={styles.salonMeta}>With {booking.professionalName}</Text>
+              ) : (
+                booking.noPreference ? (
+                  <Text style={styles.salonMeta}>Finding a professional…</Text>
+                ) : null
               )}
               <View style={styles.bookingRow}>
                 <Text style={styles.salonMeta}>
@@ -1309,6 +1746,11 @@ const styles = StyleSheet.create({
   serviceName: { fontFamily: "Manrope_700Bold", fontSize: 15, color: INK },
   serviceMeta: { fontFamily: "Manrope_500Medium", fontSize: 13, color: MUTED, marginTop: 2 },
   deleteText: { fontFamily: "Manrope_700Bold", fontSize: 13, color: RUST },
+  promoBadge: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 11,
+    color: "#3D8B5F",
+  },
   expiredBadge: {
     fontFamily: "Manrope_700Bold",
     fontSize: 11,
@@ -1516,5 +1958,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: CLAY,
     marginTop: 6,
+  },
+  categoryBadge: {
+    backgroundColor: "#FBF0E8",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: "#E8C9A8",
+  },
+  categoryBadgeText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 10,
+    color: "#C1683C",
+  },
+  slotChip: {
+    backgroundColor: "#E8F5E9",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#A5D6A7",
+  },
+  slotChipBlocked: {
+    backgroundColor: "#FFEBEE",
+    borderColor: "#EF9A9A",
+  },
+  slotChipText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
+    color: "#2E7D32",
+  },
+  slotChipTextBlocked: {
+    color: "#C62828",
+  },
+  slotHint: {
+    fontFamily: "Manrope_400Regular",
+    fontSize: 11,
+    color: "#A89D8F",
+    marginTop: 8,
   },
 });
