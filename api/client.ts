@@ -1,11 +1,14 @@
 const BASE_URL = "https://stylehub-backend-42fh.onrender.com";
 
+export type ServiceImage = { id: string; url: string };
+
 export type Service = {
   id: string;
   salonId: string;
   name: string;
   durationMins: number;
   price: number;
+  images: ServiceImage[];
 };
 
 export type Review = {
@@ -258,6 +261,34 @@ export async function submitSalonReview(
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(data?.error || "Could not submit review");
   return data;
+}
+
+export type AppNotification = {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  type: string;
+  data: Record<string, any> | null;
+  read: number;
+  createdAt: string;
+};
+
+export async function fetchNotifications(token: string): Promise<AppNotification[]> {
+  const response = await fetch(`${BASE_URL}/notifications`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Failed to fetch notifications");
+  return response.json();
+}
+
+export async function markAllNotificationsRead(token: string) {
+  const response = await fetch(`${BASE_URL}/notifications/read-all`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Failed to update notifications");
+  return response.json();
 }
 
 export async function updateProfile(
