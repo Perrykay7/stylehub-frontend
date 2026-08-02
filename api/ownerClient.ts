@@ -9,7 +9,13 @@ export type OwnerSalon = {
   imageUrl: string;
   openTime: string;
   closeTime: string;
-  services: { id: string; name: string; durationMins: number; price: number }[];
+  services: {
+    id: string;
+    name: string;
+    durationMins: number;
+    price: number;
+    images: { id: string; url: string }[];
+  }[];
 };
 
 export type OwnerBooking = {
@@ -130,6 +136,73 @@ export async function uploadProfessionalPhoto(
     throw new Error(data?.error || "Failed to upload photo");
   }
   return data.photoUrl;
+}
+
+export async function uploadServicePhoto(
+  fileUri: string,
+  token: string
+): Promise<string> {
+  const formData = new FormData();
+  formData.append("photo", {
+    uri: fileUri,
+    name: "photo.jpg",
+    type: "image/jpeg",
+  } as any);
+
+  const response = await fetch(`${BASE_URL}/upload/service-photo`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Failed to upload photo");
+  }
+  return data.photoUrl;
+}
+
+export type ServiceImage = {
+  id: string;
+  serviceId: string;
+  imageUrl: string;
+  position: number;
+  createdAt: string;
+};
+
+export async function addServiceImage(
+  serviceId: string,
+  imageUrl: string,
+  token: string
+): Promise<ServiceImage> {
+  const response = await fetch(`${BASE_URL}/owner/services/${serviceId}/images`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ imageUrl }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Failed to add photo");
+  }
+  return data;
+}
+
+export async function removeServiceImage(
+  serviceId: string,
+  imageId: string,
+  token: string
+) {
+  const response = await fetch(
+    `${BASE_URL}/owner/services/${serviceId}/images/${imageId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }
+  );
+  if (!response.ok) throw new Error("Failed to remove photo");
+  return response.json();
 }
 
 export type SalonHour = {
@@ -404,6 +477,58 @@ export async function deleteOwnerProfessional(professionalId: string, token: str
   return response.json();
 }
 
+export type UnavailabilityBlock = {
+  id: string;
+  professionalId: string;
+  date: string;
+  time: string | null;
+  createdAt: string;
+};
+
+export async function fetchProfessionalUnavailability(
+  professionalId: string,
+  date: string,
+  token: string
+): Promise<UnavailabilityBlock[]> {
+  const response = await fetch(
+    `${BASE_URL}/owner/professionals/${professionalId}/unavailability?date=${date}`,
+    { headers: authHeaders(token) }
+  );
+  if (!response.ok) throw new Error("Failed to fetch time off");
+  return response.json();
+}
+
+export async function markProfessionalUnavailable(
+  professionalId: string,
+  payload: { date: string; time?: string },
+  token: string
+): Promise<UnavailabilityBlock> {
+  const response = await fetch(
+    `${BASE_URL}/owner/professionals/${professionalId}/unavailability`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to mark unavailable");
+  return data;
+}
+
+export async function removeProfessionalUnavailability(
+  professionalId: string,
+  blockId: string,
+  token: string
+) {
+  const response = await fetch(
+    `${BASE_URL}/owner/professionals/${professionalId}/unavailability/${blockId}`,
+    { method: "DELETE", headers: authHeaders(token) }
+  );
+  if (!response.ok) throw new Error("Failed to remove time off");
+  return response.json();
+}
+
 export async function createOwnerPromoCode(
   salonId: string,
   payload: {
@@ -452,4 +577,37 @@ export async function deleteOwnerPromoCode(promoCodeId: string, token: string) {
   });
   if (!response.ok) throw new Error("Failed to delete promo code");
   return response.json();
+}
+
+export type LoyaltySettings = {
+  salonId: string;
+  enabled: number;
+  visitsRequired: number;
+  discountPercent: number;
+};
+
+export async function fetchLoyaltySettings(
+  salonId: string,
+  token: string
+): Promise<LoyaltySettings> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/loyalty`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch loyalty settings");
+  return response.json();
+}
+
+export async function updateLoyaltySettings(
+  salonId: string,
+  payload: { enabled: boolean; visitsRequired: number; discountPercent: number },
+  token: string
+): Promise<LoyaltySettings> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/loyalty`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to update loyalty settings");
+  return data;
 }

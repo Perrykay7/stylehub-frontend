@@ -3,20 +3,24 @@ import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Image,
     Pressable,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../data/authContext";
 import {
     addOwnerService,
+    addServiceImage,
+    removeServiceImage,
+    uploadServicePhoto,
     announceToCustomers,
     blockSlot,
     createManualBooking,
@@ -38,10 +42,17 @@ import {
     fetchOwnerProfessionals,
     fetchOwnerPromoCodes,
     fetchOwnerSalons,
+    fetchProfessionalUnavailability,
+    fetchLoyaltySettings,
+    updateLoyaltySettings,
+    markProfessionalUnavailable,
+    removeProfessionalUnavailability,
+    LoyaltySettings,
     OwnerBooking,
     OwnerSalon,
     Professional,
     PromoCode,
+    UnavailabilityBlock,
     unblockSlot,
     updateOwnerSalon,
     updateOwnerService,
@@ -53,7 +64,62 @@ function getOrdinal(n: number) {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
-} 
+}
+
+function getNextDays(count: number) {
+  const days: Date[] = [];
+  const today = new Date();
+  for (let i = 0; i < count; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
+function toIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const DATE_PICKER_DAYS = getNextDays(60);
+
+function DatePickerRow({
+  selectedDate,
+  onSelect,
+}: {
+  selectedDate: string;
+  onSelect: (isoDate: string) => void;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {DATE_PICKER_DAYS.map((date) => {
+          const iso = toIsoDate(date);
+          const isSelected = iso === selectedDate;
+          const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
+          return (
+            <Pressable
+              key={iso}
+              style={[styles.datePickerChip, isSelected && styles.datePickerChipSelected]}
+              onPress={() => onSelect(iso)}
+            >
+              <Text style={[styles.datePickerWeekday, isSelected && styles.datePickerTextSelected]}>
+                {weekday}
+              </Text>
+              <Text style={[styles.datePickerDay, isSelected && styles.datePickerTextSelected]}>
+                {date.getDate()}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+}
+
 export default function MySalonScreen() {
   const { token } = useAuth();
   const router = useRouter();
@@ -110,6 +176,7 @@ export default function MySalonScreen() {
  const [proPhotoUrl, setProPhotoUrl] = useState("");
  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingSalonPhotoId, setUploadingSalonPhotoId] = useState<string | null>(null);
+  const [uploadingServicePhotoId, setUploadingServicePhotoId] = useState<string | null>(null);
 
   // Manual booking state
   const [manualBookingSalonId, setManualBookingSalonId] = useState<string | null>(null);
@@ -197,6 +264,21 @@ export default function MySalonScreen() {
   const [blockedSlots, setBlockedSlots] = useState<{ id: string; time: string }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [togglingSlot, setTogglingSlot] = useState<string | null>(null);
+
+  // Professional time-off state
+  const [timeOffProfessionalId, setTimeOffProfessionalId] = useState<string | null>(null);
+  const [timeOffDate, setTimeOffDate] = useState("");
+  const [timeOffBlocks, setTimeOffBlocks] = useState<UnavailabilityBlock[]>([]);
+  const [loadingTimeOff, setLoadingTimeOff] = useState(false);
+  const [togglingTimeOff, setTogglingTimeOff] = useState<string | null>(null);
+
+  // Loyalty program state
+  const [loyaltySalonId, setLoyaltySalonId] = useState<string | null>(null);
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
+  const [loyaltyVisits, setLoyaltyVisits] = useState("5");
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState("10");
+  const [loadingLoyalty, setLoadingLoyalty] = useState(false);
+  const [savingLoyalty, setSavingLoyalty] = useState(false);
 
   async function loadData() {
     if (!token) return;
@@ -465,7 +547,50 @@ export default function MySalonScreen() {
       setUploadingSalonPhotoId(null);
     }
   }
-  
+
+  async function handlePickServicePhoto(serviceId: string, existingCount: number) {
+    if (!token) return;
+    if (existingCount >= 3) {
+      Alert.alert("Limit reached", "You can add up to 3 photos per service.");
+      return;
+    }
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo access to upload a picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setUploadingServicePhotoId(serviceId);
+    try {
+      const photoUrl = await uploadServicePhoto(result.assets[0].uri, token);
+      await addServiceImage(serviceId, photoUrl, token);
+      await loadData();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not upload photo.");
+    } finally {
+      setUploadingServicePhotoId(null);
+    }
+  }
+
+  async function handleRemoveServicePhoto(serviceId: string, imageId: string) {
+    if (!token) return;
+    try {
+      await removeServiceImage(serviceId, imageId, token);
+      await loadData();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not remove photo.");
+    }
+  }
+
   async function handlePickProfessionalPhoto() {
     if (!token) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -715,14 +840,11 @@ export default function MySalonScreen() {
     return slots;
   }
 
-  async function handleLoadBlockedSlots(salonId: string) {
-    if (!token || !availabilityDate) {
-      Alert.alert("Missing date", "Please enter a date first (YYYY-MM-DD).");
-      return;
-    }
+  async function handleLoadBlockedSlots(salonId: string, date: string) {
+    if (!token || !date) return;
     setLoadingSlots(true);
     try {
-      const data = await fetchBlockedSlots(salonId, availabilityDate, token);
+      const data = await fetchBlockedSlots(salonId, date, token);
       setBlockedSlots(data);
     } catch {
       Alert.alert("Error", "Could not load blocked slots.");
@@ -747,6 +869,95 @@ export default function MySalonScreen() {
       Alert.alert("Error", err.message || "Could not update slot.");
     } finally {
       setTogglingSlot(null);
+    }
+  }
+
+  async function handleLoadTimeOff(professionalId: string, date: string) {
+    if (!token || !date) return;
+    setLoadingTimeOff(true);
+    try {
+      const data = await fetchProfessionalUnavailability(professionalId, date, token);
+      setTimeOffBlocks(data);
+    } catch {
+      Alert.alert("Error", "Could not load time off.");
+    } finally {
+      setLoadingTimeOff(false);
+    }
+  }
+
+  async function handleToggleTimeOffSlot(professionalId: string, time: string) {
+    if (!token || !timeOffDate) return;
+    setTogglingTimeOff(time);
+    try {
+      const existing = timeOffBlocks.find((b) => b.time === time);
+      if (existing) {
+        await removeProfessionalUnavailability(professionalId, existing.id, token);
+        setTimeOffBlocks((prev) => prev.filter((b) => b.id !== existing.id));
+      } else {
+        const result = await markProfessionalUnavailable(professionalId, { date: timeOffDate, time }, token);
+        setTimeOffBlocks((prev) => [...prev, result]);
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not update time off.");
+    } finally {
+      setTogglingTimeOff(null);
+    }
+  }
+
+  async function handleToggleWholeDayOff(professionalId: string) {
+    if (!token || !timeOffDate) return;
+    setTogglingTimeOff("WHOLE_DAY");
+    try {
+      const wholeDayBlock = timeOffBlocks.find((b) => !b.time);
+      if (wholeDayBlock) {
+        await removeProfessionalUnavailability(professionalId, wholeDayBlock.id, token);
+        setTimeOffBlocks((prev) => prev.filter((b) => b.id !== wholeDayBlock.id));
+      } else {
+        const result = await markProfessionalUnavailable(professionalId, { date: timeOffDate }, token);
+        setTimeOffBlocks((prev) => [...prev, result]);
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not update time off.");
+    } finally {
+      setTogglingTimeOff(null);
+    }
+  }
+
+  async function handleLoadLoyalty(salonId: string) {
+    if (!token) return;
+    setLoadingLoyalty(true);
+    try {
+      const data = await fetchLoyaltySettings(salonId, token);
+      setLoyaltyEnabled(!!data.enabled);
+      setLoyaltyVisits(String(data.visitsRequired));
+      setLoyaltyDiscount(String(data.discountPercent));
+    } catch {
+      Alert.alert("Error", "Could not load loyalty program settings.");
+    } finally {
+      setLoadingLoyalty(false);
+    }
+  }
+
+  async function handleSaveLoyalty(salonId: string) {
+    if (!token) return;
+    const visitsRequired = parseInt(loyaltyVisits, 10);
+    const discountPercent = parseFloat(loyaltyDiscount);
+    if (!visitsRequired || visitsRequired < 2) {
+      Alert.alert("Invalid value", "Visits required must be at least 2.");
+      return;
+    }
+    if (!discountPercent || discountPercent <= 0 || discountPercent > 100) {
+      Alert.alert("Invalid value", "Discount must be between 1 and 100.");
+      return;
+    }
+    setSavingLoyalty(true);
+    try {
+      await updateLoyaltySettings(salonId, { enabled: loyaltyEnabled, visitsRequired, discountPercent }, token);
+      Alert.alert("Saved", "Loyalty program settings updated.");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not save loyalty program settings.");
+    } finally {
+      setSavingLoyalty(false);
     }
   }
 
@@ -934,27 +1145,65 @@ export default function MySalonScreen() {
                       </View>
                     </View>
                   ) : (
-                    <View key={service.id} style={styles.serviceRow}>
-                      <View style={styles.serviceInfo}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <Text style={styles.serviceName}>{service.name}</Text>
-                          {service.category ? (
-                            <View style={styles.categoryBadge}>
-                              <Text style={styles.categoryBadgeText}>{service.category}</Text>
-                            </View>
-                          ) : null}
+                    <View key={service.id} style={styles.serviceRowWrapper}>
+                      <View style={styles.serviceRow}>
+                        <View style={styles.serviceInfo}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <Text style={styles.serviceName}>{service.name}</Text>
+                            {service.category ? (
+                              <View style={styles.categoryBadge}>
+                                <Text style={styles.categoryBadgeText}>{service.category}</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          <Text style={styles.serviceMeta}>
+                            {service.durationMins} min · GHS {service.price}
+                          </Text>
                         </View>
-                        <Text style={styles.serviceMeta}>
-                          {service.durationMins} min · GHS {service.price}
-                        </Text>
+                        <View style={{ flexDirection: "row", gap: 14 }}>
+                          <Pressable onPress={() => startEditingService(service)}>
+                            <Text style={styles.editText}>Edit</Text>
+                          </Pressable>
+                          <Pressable onPress={() => handleDeleteService(service.id)}>
+                            <Text style={styles.deleteText}>Remove</Text>
+                          </Pressable>
+                        </View>
                       </View>
-                      <View style={{ flexDirection: "row", gap: 14 }}>
-                        <Pressable onPress={() => startEditingService(service)}>
-                          <Text style={styles.editText}>Edit</Text>
-                        </Pressable>
-                        <Pressable onPress={() => handleDeleteService(service.id)}>
-                          <Text style={styles.deleteText}>Remove</Text>
-                        </Pressable>
+
+                      <View style={styles.servicePhotosRow}>
+                        {service.images.map((image) => (
+                          <View key={image.id} style={styles.servicePhotoThumbWrap}>
+                            <Image source={{ uri: image.url }} style={styles.servicePhotoThumb} />
+                            <Pressable
+                              style={styles.servicePhotoRemoveBtn}
+                              onPress={() =>
+                                Alert.alert("Remove photo", "Remove this photo from the service?", [
+                                  { text: "Cancel", style: "cancel" },
+                                  {
+                                    text: "Remove",
+                                    style: "destructive",
+                                    onPress: () => handleRemoveServicePhoto(service.id, image.id),
+                                  },
+                                ])
+                              }
+                            >
+                              <Text style={styles.servicePhotoRemoveBtnText}>×</Text>
+                            </Pressable>
+                          </View>
+                        ))}
+                        {service.images.length < 3 &&
+                          (uploadingServicePhotoId === service.id ? (
+                            <View style={styles.servicePhotoAddBtn}>
+                              <ActivityIndicator size="small" color={CLAY} />
+                            </View>
+                          ) : (
+                            <Pressable
+                              style={styles.servicePhotoAddBtn}
+                              onPress={() => handlePickServicePhoto(service.id, service.images.length)}
+                            >
+                              <Text style={styles.servicePhotoAddBtnText}>+ Photo</Text>
+                            </Pressable>
+                          ))}
                       </View>
                     </View>
                   )
@@ -1104,34 +1353,114 @@ export default function MySalonScreen() {
 
                 <Text style={styles.servicesLabel}>Professionals</Text>
                 {(professionals[salon.id] || []).map((pro) => (
-                  <View key={pro.id} style={styles.serviceRow}>
-                    {pro.photoUrl ? (
-                      <Image source={{ uri: pro.photoUrl }} style={styles.proThumbnail} />
-                    ) : (
-                      <View style={styles.proThumbnailPlaceholder}>
-                        <Text style={styles.proThumbnailInitial}>
-                          {pro.name.charAt(0).toUpperCase()}
+                  <View key={pro.id}>
+                    <View style={styles.serviceRow}>
+                      {pro.photoUrl ? (
+                        <Image source={{ uri: pro.photoUrl }} style={styles.proThumbnail} />
+                      ) : (
+                        <View style={styles.proThumbnailPlaceholder}>
+                          <Text style={styles.proThumbnailInitial}>
+                            {pro.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.serviceInfo}>
+                        <Text style={styles.serviceName}>{pro.name}</Text>
+                        <Text style={styles.serviceMeta}>
+                          {pro.services.map((s) => s.name).join(", ") || "No services assigned"}
+                        </Text>
+                        {pro.userId ? (
+                          <Text style={styles.promoBadge}>✓ Account claimed</Text>
+                        ) : pro.claimCode ? (
+                          <Text style={styles.serviceMeta}>
+                            Claim code: <Text style={{ fontFamily: "Manrope_700Bold" }}>{pro.claimCode}</Text>
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Pressable
+                        onPress={() => handleDeleteProfessional(pro.id, salon.id)}
+                      >
+                        <Text style={styles.deleteText}>Remove</Text>
+                      </Pressable>
+                    </View>
+
+                    <Pressable
+                      style={styles.addServiceLink}
+                      onPress={() => {
+                        if (timeOffProfessionalId === pro.id) {
+                          setTimeOffProfessionalId(null);
+                        } else {
+                          setTimeOffProfessionalId(pro.id);
+                          setTimeOffDate("");
+                          setTimeOffBlocks([]);
+                        }
+                      }}
+                    >
+                      <Text style={styles.addServiceLinkText}>
+                        {timeOffProfessionalId === pro.id ? "▲ Hide Time Off" : "🚫 Time Off"}
+                      </Text>
+                    </Pressable>
+
+                    {timeOffProfessionalId === pro.id && (
+                      <View style={styles.serviceForm}>
+                        <Text style={styles.promoTargetLabel}>Mark {pro.name} unavailable</Text>
+                        <DatePickerRow
+                          selectedDate={timeOffDate}
+                          onSelect={(iso) => {
+                            setTimeOffDate(iso);
+                            handleLoadTimeOff(pro.id, iso);
+                          }}
+                        />
+                        {loadingTimeOff && <ActivityIndicator color="#C1683C" />}
+
+                        {timeOffDate !== "" && !loadingTimeOff && (
+                          <>
+                            <Pressable
+                              style={[
+                                styles.slotChip,
+                                { alignSelf: "flex-start", marginTop: 10 },
+                                timeOffBlocks.some((b) => !b.time) && styles.slotChipBlocked,
+                              ]}
+                              onPress={() => handleToggleWholeDayOff(pro.id)}
+                              disabled={!!togglingTimeOff}
+                            >
+                              <Text
+                                style={[
+                                  styles.slotChipText,
+                                  timeOffBlocks.some((b) => !b.time) && styles.slotChipTextBlocked,
+                                ]}
+                              >
+                                {togglingTimeOff === "WHOLE_DAY" ? "..." : "Whole day off"}
+                              </Text>
+                            </Pressable>
+
+                            {!timeOffBlocks.some((b) => !b.time) && (
+                              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                                {generateTimeSlots(salon.openTime, salon.closeTime).map((time) => {
+                                  const isBlocked = timeOffBlocks.some((b) => b.time === time);
+                                  const isToggling = togglingTimeOff === time;
+                                  return (
+                                    <Pressable
+                                      key={time}
+                                      style={[styles.slotChip, isBlocked && styles.slotChipBlocked]}
+                                      onPress={() => handleToggleTimeOffSlot(pro.id, time)}
+                                      disabled={!!togglingTimeOff}
+                                    >
+                                      <Text style={[styles.slotChipText, isBlocked && styles.slotChipTextBlocked]}>
+                                        {isToggling ? "..." : time}
+                                      </Text>
+                                    </Pressable>
+                                  );
+                                })}
+                              </View>
+                            )}
+                          </>
+                        )}
+                        <Text style={styles.slotHint}>
+                          Tap "Whole day off" to block the entire day, or tap individual times. Tap again to undo.
                         </Text>
                       </View>
                     )}
-                    <View style={styles.serviceInfo}>
-                      <Text style={styles.serviceName}>{pro.name}</Text>
-                      <Text style={styles.serviceMeta}>
-                        {pro.services.map((s) => s.name).join(", ") || "No services assigned"}
-                      </Text>
-                      {pro.userId ? (
-                        <Text style={styles.promoBadge}>✓ Account claimed</Text>
-                      ) : pro.claimCode ? (
-                        <Text style={styles.serviceMeta}>
-                          Claim code: <Text style={{ fontFamily: "Manrope_700Bold" }}>{pro.claimCode}</Text>
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Pressable
-                      onPress={() => handleDeleteProfessional(pro.id, salon.id)}
-                    >
-                      <Text style={styles.deleteText}>Remove</Text>
-                    </Pressable>
                   </View>
                 ))}
 
@@ -1512,24 +1841,16 @@ export default function MySalonScreen() {
             {availabilitySalonId === salon.id && (
               <View style={styles.serviceForm}>
                 <Text style={styles.promoTargetLabel}>Block / unblock time slots</Text>
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  <TextInput
-                    style={[styles.input, { flex: 1 }]}
-                    placeholder="Date (YYYY-MM-DD)"
-                    placeholderTextColor="#A89D8F"
-                    value={availabilityDate}
-                    onChangeText={setAvailabilityDate}
-                  />
-                  <Pressable
-                    style={[styles.smallButton, { paddingHorizontal: 12 }]}
-                    onPress={() => handleLoadBlockedSlots(salon.id)}
-                    disabled={loadingSlots}
-                  >
-                    <Text style={styles.smallButtonText}>{loadingSlots ? "..." : "Load"}</Text>
-                  </Pressable>
-                </View>
+                <DatePickerRow
+                  selectedDate={availabilityDate}
+                  onSelect={(iso) => {
+                    setAvailabilityDate(iso);
+                    handleLoadBlockedSlots(salon.id, iso);
+                  }}
+                />
+                {loadingSlots && <ActivityIndicator color="#C1683C" />}
 
-                {availabilityDate !== "" && (
+                {availabilityDate !== "" && !loadingSlots && (
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
                     {generateTimeSlots(salon.openTime, salon.closeTime).map((time) => {
                       const isBlocked = blockedSlots.some((s) => s.time === time);
@@ -1553,6 +1874,72 @@ export default function MySalonScreen() {
                   </View>
                 )}
                 <Text style={styles.slotHint}>Tap a slot to block it. Tap again to unblock.</Text>
+              </View>
+            )}
+
+            {/* Loyalty Program */}
+            <Pressable
+              style={styles.addServiceLink}
+              onPress={() => {
+                if (loyaltySalonId === salon.id) {
+                  setLoyaltySalonId(null);
+                } else {
+                  setLoyaltySalonId(salon.id);
+                  handleLoadLoyalty(salon.id);
+                }
+              }}
+            >
+              <Text style={styles.addServiceLinkText}>
+                {loyaltySalonId === salon.id ? "▲ Hide Loyalty Program" : "🎁 Loyalty Program"}
+              </Text>
+            </Pressable>
+
+            {loyaltySalonId === salon.id && (
+              <View style={styles.serviceForm}>
+                {loadingLoyalty ? (
+                  <ActivityIndicator color="#C1683C" />
+                ) : (
+                  <>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <Text style={styles.promoTargetLabel}>Enable loyalty rewards</Text>
+                      <Switch
+                        value={loyaltyEnabled}
+                        onValueChange={setLoyaltyEnabled}
+                        trackColor={{ false: "#EFE6D9", true: "#C1683C" }}
+                        thumbColor="#fff"
+                      />
+                    </View>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Every how many visits?"
+                      placeholderTextColor="#A89D8F"
+                      keyboardType="numeric"
+                      value={loyaltyVisits}
+                      onChangeText={setLoyaltyVisits}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Discount % earned"
+                      placeholderTextColor="#A89D8F"
+                      keyboardType="numeric"
+                      value={loyaltyDiscount}
+                      onChangeText={setLoyaltyDiscount}
+                    />
+                    <Pressable
+                      style={[styles.smallButton, savingLoyalty && styles.buttonDisabled]}
+                      onPress={() => handleSaveLoyalty(salon.id)}
+                      disabled={savingLoyalty}
+                    >
+                      <Text style={styles.smallButtonText}>
+                        {savingLoyalty ? "Saving..." : "Save"}
+                      </Text>
+                    </Pressable>
+                    <Text style={styles.slotHint}>
+                      Customers automatically earn a discount code for their next visit once they
+                      hit this visit count. It applies itself at checkout — no code to enter.
+                    </Text>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -1734,17 +2121,68 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   noServices: { fontFamily: "Manrope_500Medium", fontSize: 13, color: MUTED, marginBottom: 8 },
+  serviceRowWrapper: {
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3ECE2",
+  },
   serviceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3ECE2",
   },
   serviceInfo: { flex: 1 },
   serviceName: { fontFamily: "Manrope_700Bold", fontSize: 15, color: INK },
   serviceMeta: { fontFamily: "Manrope_500Medium", fontSize: 13, color: MUTED, marginTop: 2 },
+  servicePhotosRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  servicePhotoThumbWrap: {
+    position: "relative",
+    width: 64,
+    height: 64,
+  },
+  servicePhotoThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+  },
+  servicePhotoRemoveBtn: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: RUST,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  servicePhotoRemoveBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    lineHeight: 14,
+    fontFamily: "Manrope_700Bold",
+  },
+  servicePhotoAddBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E4D9C9",
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  servicePhotoAddBtnText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 11,
+    color: CLAY,
+    textAlign: "center",
+  },
   deleteText: { fontFamily: "Manrope_700Bold", fontSize: 13, color: RUST },
   promoBadge: {
     fontFamily: "Manrope_700Bold",
@@ -1971,6 +2409,34 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_600SemiBold",
     fontSize: 10,
     color: "#C1683C",
+  },
+  datePickerChip: {
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+    minWidth: 52,
+  },
+  datePickerChipSelected: {
+    backgroundColor: "#C1683C",
+    borderColor: "#C1683C",
+  },
+  datePickerWeekday: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 11,
+    color: "#8C8378",
+  },
+  datePickerDay: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 16,
+    color: "#2B2622",
+    marginTop: 2,
+  },
+  datePickerTextSelected: {
+    color: "#fff",
   },
   slotChip: {
     backgroundColor: "#E8F5E9",
