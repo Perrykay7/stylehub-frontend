@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -16,7 +18,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
 import { useTheme } from "../../data/themeContext";
-import { fetchSalonById, Review, Salon, submitSalonReview } from "../api/client";
+import {
+    fetchMyLoyaltyStatus,
+    fetchSalonById,
+    LoyaltyStatus,
+    Review,
+    Salon,
+    submitSalonReview,
+} from "../../api/client";
 
 export default function SalonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +35,7 @@ export default function SalonDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [loyaltyStatus, setLoyaltyStatus] = useState<LoyaltyStatus | null>(null);
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
@@ -42,6 +52,13 @@ export default function SalonDetailScreen() {
       .catch(() => setError("Could not load salon details."))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !token) return;
+    fetchMyLoyaltyStatus(id, token)
+      .then(setLoyaltyStatus)
+      .catch(() => setLoyaltyStatus(null));
+  }, [id, token]);
 
   async function handleSubmitReview() {
     if (reviewRating === 0) {
@@ -115,32 +132,81 @@ export default function SalonDetailScreen() {
           </Text>
         </View>
 
+        {loyaltyStatus?.enabled && (
+          <View style={[styles.loyaltyBanner, { backgroundColor: colors.card }]}>
+            <Text style={styles.loyaltyEmoji}>🎁</Text>
+            <View style={{ flex: 1 }}>
+              {loyaltyStatus.visitsUntilNextReward === loyaltyStatus.visitsRequired &&
+              loyaltyStatus.currentVisitCount > 0 ? (
+                <Text style={[styles.loyaltyText, { color: colors.text }]}>
+                  You just earned {loyaltyStatus.discountPercent}% off! Book {loyaltyStatus.visitsRequired}{" "}
+                  more times for your next reward.
+                </Text>
+              ) : (
+                <Text style={[styles.loyaltyText, { color: colors.text }]}>
+                  {loyaltyStatus.visitsUntilNextReward} more{" "}
+                  {loyaltyStatus.visitsUntilNextReward === 1 ? "visit" : "visits"} until{" "}
+                  {loyaltyStatus.discountPercent}% off your next appointment here.
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Services</Text>
           <Text style={styles.sectionHint}>Tap a service to book it</Text>
-          {salon.services.map((service) => (
-            <Pressable
-              key={service.id}
-              style={styles.serviceRow}
-              onPress={() =>
-                router.push({
-                  pathname: "/booking",
-                  params: {
-                    salonId: salon.id,
-                    serviceId: service.id,
-                  },
-                })
-              }
-            >
-              <View style={styles.serviceInfo}>
-                <Text style={styles.serviceName}>{service.name}</Text>
-                <Text style={styles.serviceDuration}>
-                  {service.durationMins} min
-                </Text>
+          {(() => {
+            const grouped: Record<string, typeof salon.services> = {};
+            salon.services.forEach((s) => {
+              const cat = (s as any).category || "General";
+              if (!grouped[cat]) grouped[cat] = [];
+              grouped[cat].push(s);
+            });
+            const hasCategories = salon.services.some((s) => (s as any).category);
+            return Object.entries(grouped).map(([cat, services]) => (
+              <View key={cat}>
+                {hasCategories && (
+                  <Text style={styles.serviceCategoryLabel}>{cat}</Text>
+                )}
+                {services.map((service) => (
+                  <View key={service.id} style={styles.serviceItemWrapper}>
+                    <Pressable
+                      style={styles.serviceRow}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/booking",
+                          params: { salonId: salon.id, serviceId: service.id },
+                        })
+                      }
+                    >
+                      <View style={styles.serviceInfo}>
+                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <Text style={styles.serviceDuration}>{service.durationMins} min</Text>
+                      </View>
+                      <Text style={styles.servicePrice}>GHS {service.price}</Text>
+                    </Pressable>
+                    {service.images.length > 0 && (
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.servicePhotosRow}
+                      >
+                        {service.images.map((image) => (
+                          <Image
+                            key={image.id}
+                            source={{ uri: image.url }}
+                            style={styles.servicePhotoBig}
+                            contentFit="cover"
+                          />
+                        ))}
+                      </ScrollView>
+                    )}
+                  </View>
+                ))}
               </View>
-              <Text style={styles.servicePrice}>GHS {service.price}</Text>
-            </Pressable>
-          ))}
+            ));
+          })()}
         </View>
 
         <View style={[styles.section, styles.lastSection, { backgroundColor: colors.card }]}>
@@ -169,7 +235,10 @@ export default function SalonDetailScreen() {
       </ScrollView>
 
       <Modal visible={showReviewModal} transparent animationType="fade" onRequestClose={() => setShowReviewModal(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Write a Review</Text>
             <View style={styles.starsRow}>
@@ -198,7 +267,7 @@ export default function SalonDetailScreen() {
               <Text style={[styles.cancelText, { color: colors.muted }]}>Cancel</Text>
             </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -277,6 +346,29 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 1,
   },
+  loyaltyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    shadowColor: INK,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 1,
+  },
+  loyaltyEmoji: {
+    fontSize: 24,
+  },
+  loyaltyText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    lineHeight: 19,
+  },
   lastSection: {
     marginBottom: 8,
   },
@@ -329,16 +421,36 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginBottom: 10,
   },
+  serviceItemWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3ECE2",
+    paddingBottom: 10,
+  },
   serviceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3ECE2",
+    paddingTop: 14,
   },
   serviceInfo: {
     flex: 1,
+  },
+  servicePhotosRow: {
+    gap: 10,
+  },
+  servicePhotoBig: {
+    width: 220,
+    height: 150,
+    borderRadius: 14,
+  },
+  serviceCategoryLabel: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 12,
+    color: "#C1683C",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginTop: 14,
+    marginBottom: 4,
   },
   serviceName: {
     fontFamily: "Manrope_700Bold",

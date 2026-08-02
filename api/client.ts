@@ -97,6 +97,27 @@ export async function fetchMyPromo(salonId: string, token: string): Promise<MyPr
   return response.json();
 }
 
+export type LoyaltyStatus =
+  | { enabled: false }
+  | {
+      enabled: true;
+      visitsRequired: number;
+      discountPercent: number;
+      currentVisitCount: number;
+      visitsUntilNextReward: number;
+    };
+
+export async function fetchMyLoyaltyStatus(
+  salonId: string,
+  token: string
+): Promise<LoyaltyStatus> {
+  const response = await fetch(`${BASE_URL}/salons/${salonId}/my-loyalty-status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) return { enabled: false };
+  return response.json();
+}
+
 export async function createBooking(
   payload: {
     salonId: string;
