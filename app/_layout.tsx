@@ -147,6 +147,7 @@ function RootNavigator() {
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ title: "Settings" }} />
         <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
+        <Stack.Screen name="notification-settings" options={{ title: "Notification settings" }} />
         <Stack.Screen name="reverify" options={{ headerShown: false }} />
         <Stack.Screen name="owner-dashboard" options={{ title: "Dashboard" }} />
         <Stack.Screen name="professional-dashboard" options={{ title: "My Schedule" }} />

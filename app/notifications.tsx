@@ -1,6 +1,6 @@
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../data/authContext";
@@ -63,7 +63,16 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ title: "Notifications" }} />
+      <Stack.Screen
+        options={{
+          title: "Notifications",
+          headerRight: () => (
+            <Pressable onPress={() => router.push("/notification-settings" as any)} hitSlop={10}>
+              <Text style={{ fontSize: 20 }}>⚙️</Text>
+            </Pressable>
+          ),
+        }}
+      />
       {loading ? (
         <ActivityIndicator style={styles.loading} size="large" color={colors.clay} />
       ) : (

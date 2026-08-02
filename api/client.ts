@@ -42,6 +42,7 @@ export type Professional = {
   photoUrl: string | null;
   avgRating: number | null;
   ratingCount: number;
+  unavailableAllDay?: boolean;
 };
 
 export type Booking = {
@@ -163,23 +164,26 @@ export async function removeFavorite(salonId: string, token: string) {
 
 export async function fetchProfessionalsForService(
   salonId: string,
-  serviceId: string
+  serviceId: string,
+  date?: string
 ): Promise<Professional[]> {
-  const response = await fetch(
-    `${BASE_URL}/salons/${salonId}/professionals?serviceId=${serviceId}`
-  );
+  const url = date
+    ? `${BASE_URL}/salons/${salonId}/professionals?serviceId=${serviceId}&date=${date}`
+    : `${BASE_URL}/salons/${salonId}/professionals?serviceId=${serviceId}`;
+  const response = await fetch(url);
   if (!response.ok) throw new Error("Failed to fetch professionals");
   return response.json();
 }
 export async function fetchBookedSlots(
   salonId: string,
   date: string,
-  serviceId?: string
+  serviceId?: string,
+  professionalId?: string
 ): Promise<string[]> {
-  const url = serviceId
-    ? `${BASE_URL}/salons/${salonId}/booked-slots?date=${date}&serviceId=${serviceId}`
-    : `${BASE_URL}/salons/${salonId}/booked-slots?date=${date}`;
-  const response = await fetch(url);
+  const params = new URLSearchParams({ date });
+  if (serviceId) params.set("serviceId", serviceId);
+  if (professionalId) params.set("professionalId", professionalId);
+  const response = await fetch(`${BASE_URL}/salons/${salonId}/booked-slots?${params}`);
   if (!response.ok) {
     throw new Error("Failed to fetch booked slots");
   }
@@ -288,6 +292,36 @@ export async function markAllNotificationsRead(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) throw new Error("Failed to update notifications");
+  return response.json();
+}
+
+export type NotificationPreferences = {
+  smsAppointmentNotifications: boolean;
+  whatsappAppointmentNotifications: boolean;
+  smsMarketingNotifications: boolean;
+  whatsappMarketingNotifications: boolean;
+};
+
+export async function fetchNotificationPreferences(
+  token: string
+): Promise<NotificationPreferences> {
+  const response = await fetch(`${BASE_URL}/notification-preferences`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Failed to fetch notification preferences");
+  return response.json();
+}
+
+export async function updateNotificationPreferences(
+  payload: NotificationPreferences,
+  token: string
+) {
+  const response = await fetch(`${BASE_URL}/notification-preferences`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error("Failed to update notification preferences");
   return response.json();
 }
 
