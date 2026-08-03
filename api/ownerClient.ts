@@ -35,6 +35,8 @@ export type OwnerBooking = {
   professionalName: string | null;
   noPreference: number;
   customerVisitCount: number;
+  date: string;
+  status: string | null;
 };
 export type Customer = {
   id: string;
@@ -77,6 +79,29 @@ export type OwnerStats = {
   recentBookings: { salonName: string; serviceName: string; dateLabel: string; time: string; price: number; customerName: string }[];
   recentReviews: { customerName: string; rating: number; comment: string; date: string; salonName: string }[];
 };
+
+export type SalonAnalytics = {
+  range: "week" | "month" | "all";
+  revenueOverTime: { date: string; bookingCount: number; revenue: number }[];
+  cancellationRate: number;
+  cancelledCount: number;
+  noShowRate: number;
+  noShowCount: number;
+  perProfessional: { professionalId: string; name: string; bookingCount: number; revenue: number; avgRating: number }[];
+  topServices: { serviceName: string; bookingCount: number; revenue: number }[];
+};
+
+export async function fetchSalonAnalytics(
+  salonId: string,
+  range: "week" | "month" | "all",
+  token: string
+): Promise<SalonAnalytics> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/analytics?range=${range}`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch analytics");
+  return response.json();
+}
 
 function authHeaders(token: string) {
   return {
@@ -374,6 +399,21 @@ export async function fetchOwnerBookings(token: string): Promise<OwnerBooking[]>
   });
   if (!response.ok) throw new Error("Failed to fetch bookings");
   return response.json();
+}
+
+export async function markBookingNoShow(
+  bookingId: string,
+  noShow: boolean,
+  token: string
+): Promise<{ id: string; status: string | null }> {
+  const response = await fetch(`${BASE_URL}/owner/bookings/${bookingId}/no-show`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ noShow }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to update booking");
+  return data;
 }
 
 export async function updateOwnerSalon(
