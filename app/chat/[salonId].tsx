@@ -1,3 +1,4 @@
+import { useHeaderHeight } from "@react-navigation/elements";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -21,6 +22,7 @@ export default function CustomerChatScreen() {
   const { salonId, salonName } = useLocalSearchParams<{ salonId: string; salonName?: string }>();
   const { token } = useAuth();
   const { colors } = useTheme();
+  const headerHeight = useHeaderHeight();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
@@ -66,7 +68,7 @@ export default function CustomerChatScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        keyboardVerticalOffset={headerHeight}
       >
         {loading ? (
           <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.clay} />

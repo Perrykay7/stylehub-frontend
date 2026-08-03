@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import {
     Pressable,
     StyleSheet,
@@ -9,10 +10,23 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
 import { useTheme } from "../../data/themeContext";
+import { fetchMyConversations, fetchNotifications } from "../../api/client";
 
 export default function ProfileScreen() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { colors } = useTheme();
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    if (!token) return;
+    fetchNotifications(token)
+      .then((data) => setUnreadNotifications(data.filter((n) => !n.read).length))
+      .catch(() => {});
+    fetchMyConversations(token)
+      .then((data) => setUnreadMessages(data.reduce((sum, c) => sum + c.unreadCount, 0)))
+      .catch(() => {});
+  }, [token]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -22,26 +36,66 @@ export default function ProfileScreen() {
         <Text style={[styles.phone, { color: colors.muted }]}>{user?.phone}</Text>
 
         <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
+          <Pressable
+            style={styles.row}
+            onPress={() => {
+              setUnreadNotifications(0);
+              router.push("/notifications" as any);
+            }}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={[styles.rowText, { color: colors.text }]}>🔔 Notifications</Text>
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationsBadge}>
+                  <Text style={styles.notificationsBadgeText}>
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
+          </Pressable>
+          <Pressable style={styles.row} onPress={() => router.push("/messages" as any)}>
+            <View style={styles.rowLeft}>
+              <Text style={[styles.rowText, { color: colors.text }]}>💬 Messages</Text>
+              {unreadMessages > 0 && (
+                <View style={styles.notificationsBadge}>
+                  <Text style={styles.notificationsBadgeText}>
+                    {unreadMessages > 9 ? "9+" : unreadMessages}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
+          </Pressable>
+          <Pressable style={styles.row} onPress={() => router.push("/edit-profile" as any)}>
+            <Text style={[styles.rowText, { color: colors.text }]}>📝 Edit Profile</Text>
+            <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
+          </Pressable>
           {user?.role === "owner" && (
             <Pressable style={styles.row} onPress={() => router.push("/owner-dashboard" as any)}>
-              <Text style={[styles.rowText, { color: colors.text }]}>Dashboard</Text>
+              <Text style={[styles.rowText, { color: colors.text }]}>📊 Dashboard</Text>
+              <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
+            </Pressable>
+          )}
+          {user?.role === "professional" && (
+            <Pressable style={styles.row} onPress={() => router.push("/professional-dashboard" as any)}>
+              <Text style={[styles.rowText, { color: colors.text }]}>📅 My Schedule</Text>
+              <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
+            </Pressable>
+          )}
+          {user?.role === "owner" && (
+            <Pressable style={styles.row} onPress={() => router.push("/my-salon")}>
+              <Text style={[styles.rowText, { color: colors.text }]}>💈 My Salon</Text>
+              <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
             </Pressable>
           )}
           <Pressable
             style={styles.row}
-            onPress={() =>
-              user?.role === "owner"
-                ? router.push("/my-salon")
-                : router.push("/reverify-owner" as any)
-            }
-          >
-            <Text style={[styles.rowText, { color: colors.text }]}>My Salon</Text>
-          </Pressable>
-          <Pressable
-            style={styles.row}
             onPress={() => router.push("/settings")}
           >
-            <Text style={[styles.rowText, { color: colors.text }]}>Settings</Text>
+            <Text style={[styles.rowText, { color: colors.text }]}>⚙️ Settings</Text>
+            <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
           </Pressable>
         </View>
       </View>
@@ -97,10 +151,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderBottomWidth: 1,
     borderBottomColor: "#F3ECE2",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  rowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   rowText: {
     fontFamily: "Manrope_600SemiBold",
     fontSize: 15,
     color: INK,
+  },
+  rowArrow: {
+    fontFamily: "Manrope_400Regular",
+    fontSize: 20,
+    color: MUTED,
+  },
+  notificationsBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#A8442B",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  notificationsBadgeText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 10,
+    color: "#fff",
   },
 });

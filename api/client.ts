@@ -465,6 +465,22 @@ export type ChatMessage = {
   readByOwner: number;
 };
 
+export type SalonConversation = {
+  salonId: string;
+  salonName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+};
+
+export async function fetchMyConversations(token: string): Promise<SalonConversation[]> {
+  const response = await fetch(`${BASE_URL}/my-conversations`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) return [];
+  return response.json();
+}
+
 export async function fetchMyMessages(salonId: string, token: string): Promise<ChatMessage[]> {
   const response = await fetch(`${BASE_URL}/salons/${salonId}/messages`, {
     headers: { Authorization: `Bearer ${token}` },
