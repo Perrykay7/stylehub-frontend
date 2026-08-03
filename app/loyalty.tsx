@@ -17,6 +17,7 @@ function getLoyaltyTier(currentVisitCount: number, visitsRequired: number) {
 function LoyaltyCard({ item, colors }: { item: SalonLoyaltyOverview; colors: any }) {
   const tier = getLoyaltyTier(item.currentVisitCount, item.visitsRequired);
   const justEarned = item.visitsUntilNextReward === item.visitsRequired && item.currentVisitCount > 0;
+  const hasDiscount = item.discountPercent > 0;
 
   return (
     <Pressable
@@ -34,13 +35,15 @@ function LoyaltyCard({ item, colors }: { item: SalonLoyaltyOverview; colors: any
       </View>
       {justEarned ? (
         <Text style={[styles.progressText, { color: colors.muted }]}>
-          You just earned {item.discountPercent}% off! Book {item.visitsRequired} more times for
-          your next reward.
+          {hasDiscount
+            ? `You just earned ${item.discountPercent}% off! `
+            : "You just reached a new tier! "}
+          Book {item.visitsRequired} more times for your next reward.
         </Text>
       ) : (
         <Text style={[styles.progressText, { color: colors.muted }]}>
           {item.visitsUntilNextReward} more {item.visitsUntilNextReward === 1 ? "visit" : "visits"}{" "}
-          until {item.discountPercent}% off.
+          until {hasDiscount ? `${item.discountPercent}% off.` : "your next tier."}
         </Text>
       )}
     </Pressable>

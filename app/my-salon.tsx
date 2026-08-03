@@ -941,13 +941,16 @@ export default function MySalonScreen() {
   async function handleSaveLoyalty(salonId: string) {
     if (!token) return;
     const visitsRequired = parseInt(loyaltyVisits, 10);
-    const discountPercent = parseFloat(loyaltyDiscount);
+    const discountPercent = loyaltyDiscount.trim() === "" ? NaN : parseFloat(loyaltyDiscount);
     if (!visitsRequired || visitsRequired < 2) {
       Alert.alert("Invalid value", "Visits required must be at least 2.");
       return;
     }
-    if (!discountPercent || discountPercent <= 0 || discountPercent > 100) {
-      Alert.alert("Invalid value", "Discount must be between 1 and 100.");
+    if (Number.isNaN(discountPercent) || discountPercent < 0 || discountPercent > 100) {
+      Alert.alert(
+        "Invalid value",
+        "Discount must be between 0 and 100 (0 = no discount, badges only)."
+      );
       return;
     }
     setSavingLoyalty(true);
@@ -1919,7 +1922,7 @@ export default function MySalonScreen() {
                     />
                     <TextInput
                       style={styles.input}
-                      placeholder="Discount % earned"
+                      placeholder="Discount % earned (0 = badges only)"
                       placeholderTextColor="#A89D8F"
                       keyboardType="numeric"
                       value={loyaltyDiscount}
@@ -1935,8 +1938,9 @@ export default function MySalonScreen() {
                       </Text>
                     </Pressable>
                     <Text style={styles.slotHint}>
-                      Customers automatically earn a discount code for their next visit once they
-                      hit this visit count. It applies itself at checkout — no code to enter.
+                      {loyaltyDiscount.trim() === "0"
+                        ? "Customers earn a tier badge (Bronze/Silver/Gold) once they hit this visit count — no discount, just recognition."
+                        : "Customers automatically earn a discount code for their next visit once they hit this visit count. It applies itself at checkout — no code to enter."}
                     </Text>
                   </>
                 )}
