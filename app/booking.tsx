@@ -3,26 +3,27 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Image,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 
 import { useAuth } from "../data/authContext";
 import {
     createBooking,
     fetchBookedSlots,
+    fetchMyPromo,
     fetchProfessionalsForService,
     fetchSalonById,
+    joinWaitlist,
+    MyPromo,
     Professional,
     Salon,
-    validatePromoCode,
-} from "./api/client";
+} from "../api/client";
 
 function getNextDays(count: number) {
   const days = [];
@@ -70,19 +71,13 @@ export default function BookingScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const days = useMemo(() => getNextDays(7), []);
+  const days = useMemo(() => getNextDays(30), []);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [promoInput, setPromoInput] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<{
-    code: string;
-    discountPercent: number;
-  } | null>(null);
- const [promoError, setPromoError] = useState<string | null>(null);
-  const [applyingPromo, setApplyingPromo] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<MyPromo | null>(null);
 
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<
@@ -97,23 +92,32 @@ export default function BookingScreen() {
   }, [salonId]);
 
   useEffect(() => {
-    if (!salonId || !serviceId) return;
-    fetchProfessionalsForService(salonId, serviceId)
-      .then((data) => setProfessionals(data))
-      .catch(() => setProfessionals([]));
-  }, [salonId, serviceId]);
+    if (!salonId || !token) return;
+    fetchMyPromo(salonId, token)
+      .then((promo) => setAppliedPromo(promo))
+      .catch(() => setAppliedPromo(null));
+  }, [salonId, token]);
 
   const selectedDate = days[selectedDayIndex];
   const isoDate = toIsoDate(selectedDate);
 
   useEffect(() => {
+    if (!salonId || !serviceId) return;
+    fetchProfessionalsForService(salonId, serviceId, isoDate)
+      .then((data) => setProfessionals(data))
+      .catch(() => setProfessionals([]));
+  }, [salonId, serviceId, isoDate]);
+
+  useEffect(() => {
     if (!salonId) return;
     setLoadingSlots(true);
-    fetchBookedSlots(salonId, isoDate)
+    const professionalId =
+      selectedProfessionalId === "no_preference" ? undefined : selectedProfessionalId;
+    fetchBookedSlots(salonId, isoDate, serviceId, professionalId)
       .then((slots) => setBookedSlots(slots))
       .catch(() => setBookedSlots([]))
       .finally(() => setLoadingSlots(false));
-  }, [salonId, isoDate]);
+  }, [salonId, isoDate, selectedProfessionalId]);
 
   if (loading) {
     return (
@@ -189,7 +193,12 @@ export default function BookingScreen() {
           : "Could not reach the server. Make sure the backend is running.";
 
       // Refresh booked slots so the picker reflects reality
-      fetchBookedSlots(salonId, isoDate)
+      fetchBookedSlots(
+        salonId,
+        isoDate,
+        serviceId,
+        selectedProfessionalId === "no_preference" ? undefined : selectedProfessionalId
+      )
         .then((slots) => setBookedSlots(slots))
         .catch(() => {});
       setSelectedTime(null);
@@ -200,25 +209,43 @@ export default function BookingScreen() {
     }
   };
 
-  const handleApplyPromo = async () => {
-    if (!promoInput.trim()) return;
-    if (!token) return;
-    setApplyingPromo(true);
-    setPromoError(null);
+  async function handleJoinWaitlist(time: string) {
+    if (!token || !salon || !service) return;
+    const dateLabel = selectedDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
     try {
-      const result = await validatePromoCode(salon.id, promoInput.trim(), token);
-      setAppliedPromo(result);
+      await joinWaitlist(
+        {
+          salonId: salon.id,
+          serviceId: service.id,
+          professionalId:
+            selectedProfessionalId === "no_preference" ? undefined : selectedProfessionalId,
+          date: isoDate,
+          time,
+          dateLabel,
+          salonName: salon.name,
+          serviceName: service.name,
+        },
+        token
+      );
+      Alert.alert("You're on the waitlist", "We'll notify you if this slot opens up.");
     } catch (err: any) {
-      setAppliedPromo(null);
-      setPromoError(err?.message || "Invalid promo code");
-    } finally {
-      setApplyingPromo(false);
+      Alert.alert("Could not join waitlist", err.message || "Please try again.");
     }
-  };
+  }
 
   const discountedPrice = appliedPromo
     ? Math.round(service.price * (1 - appliedPromo.discountPercent / 100) * 100) / 100
     : service.price;
+
+  const selectedProfessional =
+    selectedProfessionalId === "no_preference"
+      ? null
+      : professionals.find((p) => p.id === selectedProfessionalId) || null;
+  const selectedProfessionalUnavailable = !!selectedProfessional?.unavailableAllDay;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -242,40 +269,11 @@ export default function BookingScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Promo Code</Text>
-        <View style={styles.promoRow}>
-          <TextInput
-            style={[styles.promoInput, appliedPromo && styles.promoInputApplied]}
-            placeholder="Enter promo code"
-            placeholderTextColor="#A89D8F"
-            autoCapitalize="characters"
-            value={promoInput}
-            onChangeText={(text) => {
-              setPromoInput(text);
-              if (appliedPromo) setAppliedPromo(null);
-              if (promoError) setPromoError(null);
-            }}
-            editable={!appliedPromo}
-          />
-          <Pressable
-            style={[
-              styles.promoButton,
-              (applyingPromo || !!appliedPromo) && styles.confirmButtonDisabled,
-            ]}
-            onPress={appliedPromo ? () => setAppliedPromo(null) : handleApplyPromo}
-            disabled={applyingPromo}
-          >
-            <Text style={styles.promoButtonText}>
-              {applyingPromo ? "..." : appliedPromo ? "Remove" : "Apply"}
-            </Text>
-          </Pressable>
-        </View>
         {appliedPromo && (
           <Text style={styles.promoSuccess}>
-            "{appliedPromo.code}" applied — {appliedPromo.discountPercent}% off
+            🎁 Your salon gave you {appliedPromo.discountPercent}% off this booking
           </Text>
         )}
-       {promoError && <Text style={styles.promoErrorText}>{promoError}</Text>}
 
         {professionals.length > 0 && (
           <>
@@ -285,7 +283,10 @@ export default function BookingScreen() {
                 styles.proCard,
                 selectedProfessionalId === "no_preference" && styles.proCardSelected,
               ]}
-              onPress={() => setSelectedProfessionalId("no_preference")}
+              onPress={() => {
+                setSelectedProfessionalId("no_preference");
+                setSelectedTime(null);
+              }}
             >
               <View style={styles.proAvatarPlaceholder}>
                 <Text style={styles.proShuffleIcon}>⇄</Text>
@@ -303,11 +304,20 @@ export default function BookingScreen() {
 
             {professionals.map((pro) => {
               const isSelected = selectedProfessionalId === pro.id;
+              const isUnavailable = !!pro.unavailableAllDay;
               return (
                 <Pressable
                   key={pro.id}
-                  style={[styles.proCard, isSelected && styles.proCardSelected]}
-                  onPress={() => setSelectedProfessionalId(pro.id)}
+                  style={[
+                    styles.proCard,
+                    isSelected && styles.proCardSelected,
+                    isUnavailable && styles.proCardDisabled,
+                  ]}
+                  onPress={() => {
+                    if (isUnavailable) return;
+                    setSelectedProfessionalId(pro.id);
+                    setSelectedTime(null);
+                  }}
                 >
                   {pro.photoUrl ? (
                     <Image source={{ uri: pro.photoUrl }} style={styles.proAvatar} />
@@ -320,7 +330,11 @@ export default function BookingScreen() {
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.proName}>{pro.name}</Text>
-                    {pro.avgRating ? (
+                    {isUnavailable ? (
+                      <Text style={styles.proUnavailableText}>
+                        Not available on this day
+                      </Text>
+                    ) : pro.avgRating ? (
                       <Text style={styles.proMeta}>
                         ★ {pro.avgRating} ({pro.ratingCount})
                       </Text>
@@ -378,6 +392,13 @@ export default function BookingScreen() {
         <Text style={styles.sectionTitle}>Select Time</Text>
         {loadingSlots ? (
           <ActivityIndicator style={{ marginBottom: 20 }} color="#C1683C" />
+        ) : bookedSlots.includes("CLOSED") ? (
+          <Text style={styles.closedText}>This salon is closed on this day.</Text>
+        ) : selectedProfessionalUnavailable ? (
+          <Text style={styles.closedText}>
+            {selectedProfessional?.name} is not available at this time or day. Please choose
+            another professional or date.
+          </Text>
         ) : (
           <View style={styles.timeGrid}>
             {timeSlots.map((time) => {
@@ -391,8 +412,20 @@ export default function BookingScreen() {
                     isSelected && styles.timeSlotSelected,
                     isBooked && styles.timeSlotBooked,
                   ]}
-                  onPress={() => !isBooked && setSelectedTime(time)}
-                  disabled={isBooked}
+                  onPress={() => {
+                    if (!isBooked) {
+                      setSelectedTime(time);
+                      return;
+                    }
+                    Alert.alert(
+                      "This time is fully booked",
+                      "Want us to notify you if it opens up?",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Notify Me", onPress: () => handleJoinWaitlist(time) },
+                      ]
+                    );
+                  }}
                 >
                   <Text
                     style={[
@@ -492,49 +525,10 @@ const styles = StyleSheet.create({
     color: MUTED,
     textDecorationLine: "line-through",
   },
-  promoRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 8,
-  },
-  promoInput: {
-    flex: 1,
-    fontFamily: "Manrope_500Medium",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 14,
-    color: INK,
-    borderWidth: 1,
-    borderColor: "#EFE6D9",
-  },
-  promoInputApplied: {
-    backgroundColor: "#F3ECE2",
-    color: MUTED,
-  },
-  promoButton: {
-    backgroundColor: CLAY,
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  promoButtonText: {
-    fontFamily: "Manrope_700Bold",
-    color: "#fff",
-    fontSize: 14,
-  },
   promoSuccess: {
     fontFamily: "Manrope_600SemiBold",
     fontSize: 13,
     color: "#3D8B5F",
-    marginBottom: 16,
-  },
-  promoErrorText: {
-    fontFamily: "Manrope_500Medium",
-    fontSize: 13,
-    color: "#C1432B",
     marginBottom: 16,
   },
   proCard: {
@@ -550,6 +544,15 @@ const styles = StyleSheet.create({
   proCardSelected: {
     borderColor: CLAY,
     backgroundColor: "#FBF1E9",
+  },
+  proCardDisabled: {
+    opacity: 0.5,
+  },
+  proUnavailableText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    color: "#A8442B",
+    marginTop: 2,
   },
   proAvatar: {
     width: 44,
@@ -659,6 +662,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3ECE2",
     borderColor: "#F3ECE2",
     opacity: 0.6,
+  },
+  closedText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 14,
+    color: "#C1683C",
+    textAlign: "center",
+    marginVertical: 20,
+    paddingHorizontal: 20,
   },
   timeText: {
     fontFamily: "Manrope_600SemiBold",

@@ -17,7 +17,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
 import { useTheme } from "../../data/themeContext";
-import { Booking, cancelBooking, fetchBookings, rateProfessional } from "../../api/client";
+import {
+  Booking,
+  cancelBooking,
+  fetchBookings,
+  fetchMyWaitlist,
+  leaveWaitlist,
+  rateProfessional,
+  WaitlistEntry,
+} from "../../api/client";
 function getAppointmentDateTime(booking: Booking) {
   return new Date(`${booking.date}T${booking.time}:00`);
 }
@@ -98,10 +106,36 @@ function BookingItem({
   );
 }
 
+function WaitlistItem({
+  entry,
+  onLeave,
+}: {
+  entry: WaitlistEntry;
+  onLeave: (id: string) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <Text style={[styles.salonName, { color: colors.muted }]}>{entry.salonName}</Text>
+      <Text style={[styles.serviceName, { color: colors.text }]}>{entry.serviceName}</Text>
+      <Text style={[styles.meta, { color: colors.muted }]}>
+        {entry.dateLabel} · {entry.time}
+      </Text>
+      <Text style={[styles.meta, { color: colors.muted, marginTop: 6 }]}>
+        {entry.notified ? "🎉 This slot opened up — go book it!" : "We'll notify you if this slot opens up."}
+      </Text>
+      <Pressable style={styles.cancelButton} onPress={() => onLeave(entry.id)}>
+        <Text style={styles.cancelButtonText}>Leave Waitlist</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function MyBookingsScreen() {
   const { token } = useAuth();
   const { colors } = useTheme();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,11 +153,23 @@ export default function MyBookingsScreen() {
       })
       .catch(() => setError("Could not load bookings."))
       .finally(() => setLoading(false));
+    fetchMyWaitlist(token)
+      .then(setWaitlist)
+      .catch(() => setWaitlist([]));
   }
 
   useEffect(() => {
     loadBookings();
   }, [token]);
+
+  function handleLeaveWaitlist(id: string) {
+    if (!token) return;
+    setWaitlist((prev) => prev.filter((w) => w.id !== id));
+    leaveWaitlist(id, token).catch(() => {
+      Alert.alert("Error", "Could not leave the waitlist. Please try again.");
+      loadBookings();
+    });
+  }
 
   async function handleSubmitRating() {
     if (!token || !ratingBooking) return;
@@ -197,9 +243,15 @@ export default function MyBookingsScreen() {
         getAppointmentDateTime(b).getTime() - getAppointmentDateTime(a).getTime()
     );
 
-  const sections = [
-    { title: "Upcoming", data: upcoming, isUpcoming: true },
-    { title: "Past", data: past, isUpcoming: false },
+  const sections: {
+    title: string;
+    data: (Booking | WaitlistEntry)[];
+    isUpcoming: boolean;
+    isWaitlist: boolean;
+  }[] = [
+    { title: "Upcoming", data: upcoming, isUpcoming: true, isWaitlist: false },
+    { title: "Waitlist", data: waitlist, isUpcoming: false, isWaitlist: true },
+    { title: "Past", data: past, isUpcoming: false, isWaitlist: false },
   ].filter((section) => section.data.length > 0);
 
   return (
@@ -213,18 +265,22 @@ export default function MyBookingsScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, section }) => (
-            <BookingItem
-              booking={item}
-              isUpcoming={section.isUpcoming}
-              onCancel={handleCancel}
-              onRate={(booking) => {
-                setRatingBooking(booking);
-                setRatingValue(0);
-                setRatingComment("");
-              }}
-            />
-          )}
+          renderItem={({ item, section }) =>
+            section.isWaitlist ? (
+              <WaitlistItem entry={item as WaitlistEntry} onLeave={handleLeaveWaitlist} />
+            ) : (
+              <BookingItem
+                booking={item as Booking}
+                isUpcoming={section.isUpcoming}
+                onCancel={handleCancel}
+                onRate={(booking) => {
+                  setRatingBooking(booking);
+                  setRatingValue(0);
+                  setRatingComment("");
+                }}
+              />
+            )
+          }
           renderSectionHeader={({ section }) => (
             <Text style={[styles.sectionHeader, { color: colors.text }]}>{section.title}</Text>
           )}

@@ -135,6 +135,61 @@ export async function fetchMyLoyaltyOverview(token: string): Promise<SalonLoyalt
   return response.json();
 }
 
+export type WaitlistEntry = {
+  id: string;
+  userId: string;
+  salonId: string;
+  serviceId: string;
+  professionalId: string | null;
+  date: string;
+  time: string;
+  dateLabel: string;
+  salonName: string;
+  serviceName: string;
+  notified: number;
+  createdAt: string;
+};
+
+export async function joinWaitlist(
+  payload: {
+    salonId: string;
+    serviceId: string;
+    professionalId?: string;
+    date: string;
+    time: string;
+    dateLabel: string;
+    salonName: string;
+    serviceName: string;
+  },
+  token: string
+): Promise<WaitlistEntry> {
+  const response = await fetch(`${BASE_URL}/waitlist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Could not join the waitlist");
+  return data;
+}
+
+export async function fetchMyWaitlist(token: string): Promise<WaitlistEntry[]> {
+  const response = await fetch(`${BASE_URL}/my-waitlist`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) return [];
+  return response.json();
+}
+
+export async function leaveWaitlist(waitlistId: string, token: string) {
+  const response = await fetch(`${BASE_URL}/waitlist/${waitlistId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Failed to leave the waitlist");
+  return response.json();
+}
+
 export async function createBooking(
   payload: {
     salonId: string;
