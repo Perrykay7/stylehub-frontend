@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../data/authContext";
 import { useTheme } from "../data/themeContext";
-import { deleteAccount } from "./api/client";
+import { deleteAccount } from "../api/client";
 
 const SUPPORT_PHONE = "0552213828";
 const SUPPORT_EMAIL = "supportstylehub5@gmail.com";
@@ -54,11 +54,20 @@ We may update these terms from time to time. Continued use of the app after chan
 10. Contact
 For questions about these terms, contact us through the Customer Service option in Settings.`;
 
+const ABOUT_TEXT = `StyleHub was built to make booking your next haircut, braid, facial, or spa day as easy as a few taps. Browse trusted salons and spas near you, compare services and prices, and book an appointment in seconds — no phone tag, no waiting on hold.
+
+Whether you're a customer looking for your next great look, a salon owner managing bookings and staff, or a professional building your own client base, StyleHub brings everyone together in one place.
+
+Thank you for being part of our community — we're glad you're here.
+
+Version 1.0.0`;
+
 export default function SettingsScreen() {
   const { user, token, logout } = useAuth();
   const { theme, colors, toggleTheme } = useTheme();
   const [showTerms, setShowTerms] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   function handleLogout() {
@@ -76,31 +85,23 @@ export default function SettingsScreen() {
   }
 
   function handleDeleteAccount() {
-    Alert.alert(
-      "Delete Account",
-      user?.role === "owner"
-        ? "This will permanently delete your account, including any salons, services, promo codes, and bookings you own. This cannot be undone."
-        : "This will permanently delete your account and booking history. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete Account",
-          style: "destructive",
-          onPress: async () => {
-            if (!token) return;
-            setDeleting(true);
-            try {
-              await deleteAccount(token);
-              await logout();
-              router.replace("/login");
-            } catch (err: any) {
-              Alert.alert("Error", err.message || "Could not delete account.");
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ]
+    Alert.prompt(
+      "Confirm Password",
+      "Enter your password to permanently delete your account. This cannot be undone.",
+      async (password) => {
+        if (!password || !token) return;
+        setDeleting(true);
+        try {
+          await deleteAccount(token, password);
+          await logout();
+          router.replace("/login");
+        } catch (err: any) {
+          Alert.alert("Error", err.message || "Could not delete account.");
+        } finally {
+          setDeleting(false);
+        }
+      },
+      "secure-text"
     );
   }
 
@@ -118,6 +119,13 @@ export default function SettingsScreen() {
               thumbColor="#fff"
             />
           </View>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
+          <Pressable style={styles.row} onPress={() => router.push("/loyalty" as any)}>
+            <Text style={[styles.rowText, { color: colors.text }]}>🎁 Loyalty Rewards</Text>
+            <Text style={[styles.chevron, { color: colors.muted }]}>›</Text>
+          </Pressable>
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
@@ -154,6 +162,21 @@ export default function SettingsScreen() {
           {showTerms && (
             <View style={styles.expandedContent}>
               <Text style={[styles.termsText, { color: colors.muted }]}>{TERMS_OF_SERVICE}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
+          <Pressable
+            style={styles.row}
+            onPress={() => setShowAbout((prev) => !prev)}
+          >
+            <Text style={[styles.rowText, { color: colors.text }]}>About</Text>
+            <Text style={[styles.chevron, { color: colors.muted }]}>{showAbout ? "−" : "+"}</Text>
+          </Pressable>
+          {showAbout && (
+            <View style={styles.expandedContent}>
+              <Text style={[styles.termsText, { color: colors.muted }]}>{ABOUT_TEXT}</Text>
             </View>
           )}
         </View>

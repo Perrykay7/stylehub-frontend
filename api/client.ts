@@ -118,6 +118,23 @@ export async function fetchMyLoyaltyStatus(
   return response.json();
 }
 
+export type SalonLoyaltyOverview = {
+  salonId: string;
+  salonName: string;
+  visitsRequired: number;
+  discountPercent: number;
+  currentVisitCount: number;
+  visitsUntilNextReward: number;
+};
+
+export async function fetchMyLoyaltyOverview(token: string): Promise<SalonLoyaltyOverview[]> {
+  const response = await fetch(`${BASE_URL}/my-loyalty`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) return [];
+  return response.json();
+}
+
 export async function createBooking(
   payload: {
     salonId: string;
