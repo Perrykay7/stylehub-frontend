@@ -19,20 +19,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../data/authContext";
 import { useTheme } from "../../data/themeContext";
 import {
-    fetchMyLoyaltyStatus,
     fetchSalonById,
-    LoyaltyStatus,
     Review,
     Salon,
     submitSalonReview,
 } from "../../api/client";
-
-function getLoyaltyTier(currentVisitCount: number, visitsRequired: number) {
-  const rewardsEarned = Math.floor(currentVisitCount / visitsRequired);
-  if (rewardsEarned >= 2) return { label: "Gold Member", emoji: "🥇", color: "#B8860B" };
-  if (rewardsEarned >= 1) return { label: "Silver Member", emoji: "🥈", color: "#8A8A8A" };
-  return { label: "Bronze Member", emoji: "🥉", color: "#A9673B" };
-}
 
 export default function SalonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,7 +33,6 @@ export default function SalonDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [loyaltyStatus, setLoyaltyStatus] = useState<LoyaltyStatus | null>(null);
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
@@ -59,13 +49,6 @@ export default function SalonDetailScreen() {
       .catch(() => setError("Could not load salon details."))
       .finally(() => setLoading(false));
   }, [id]);
-
-  useEffect(() => {
-    if (!id || !token) return;
-    fetchMyLoyaltyStatus(id, token)
-      .then(setLoyaltyStatus)
-      .catch(() => setLoyaltyStatus(null));
-  }, [id, token]);
 
   async function handleSubmitReview() {
     if (reviewRating === 0) {
@@ -138,47 +121,6 @@ export default function SalonDetailScreen() {
             Open {salon.openTime} – {salon.closeTime}
           </Text>
         </View>
-
-        {loyaltyStatus?.enabled &&
-          (() => {
-            const tier = getLoyaltyTier(loyaltyStatus.currentVisitCount, loyaltyStatus.visitsRequired);
-            return (
-              <View style={[styles.loyaltyBanner, { backgroundColor: colors.card }]}>
-                <Text style={styles.loyaltyEmoji}>{tier.emoji}</Text>
-                <View style={{ flex: 1 }}>
-                  <View style={[styles.tierBadge, { backgroundColor: tier.color }]}>
-                    <Text style={styles.tierBadgeText}>{tier.label}</Text>
-                  </View>
-                  {(() => {
-                    const justHitMilestone =
-                      loyaltyStatus.visitsUntilNextReward === loyaltyStatus.visitsRequired &&
-                      loyaltyStatus.currentVisitCount > 0;
-                    const hasDiscount = loyaltyStatus.discountPercent > 0;
-
-                    if (justHitMilestone) {
-                      return (
-                        <Text style={[styles.loyaltyText, { color: colors.text }]}>
-                          {hasDiscount
-                            ? `You just earned ${loyaltyStatus.discountPercent}% off! `
-                            : "You just reached a new tier! "}
-                          Book {loyaltyStatus.visitsRequired} more times for your next reward.
-                        </Text>
-                      );
-                    }
-                    return (
-                      <Text style={[styles.loyaltyText, { color: colors.text }]}>
-                        {loyaltyStatus.visitsUntilNextReward} more{" "}
-                        {loyaltyStatus.visitsUntilNextReward === 1 ? "visit" : "visits"} until{" "}
-                        {hasDiscount
-                          ? `${loyaltyStatus.discountPercent}% off your next appointment here.`
-                          : "your next tier."}
-                      </Text>
-                    );
-                  })()}
-                </View>
-              </View>
-            );
-          })()}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Services</Text>
@@ -372,43 +314,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 1,
-  },
-  loyaltyBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    shadowColor: INK,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  loyaltyEmoji: {
-    fontSize: 24,
-  },
-  loyaltyText: {
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  tierBadge: {
-    alignSelf: "flex-start",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    marginBottom: 6,
-  },
-  tierBadgeText: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 11,
-    color: "#fff",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   lastSection: {
     marginBottom: 8,
