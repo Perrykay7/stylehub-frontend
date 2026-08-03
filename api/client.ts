@@ -1,4 +1,5 @@
 const BASE_URL = "https://stylehub-backend-42fh.onrender.com";
+export const WS_BASE_URL = BASE_URL.replace(/^http/, "ws");
 
 export type ServiceImage = { id: string; url: string };
 
@@ -450,5 +451,39 @@ export async function deleteAccount(token: string, password: string) {
   if (!response.ok) {
     throw new Error(data?.error || "Could not delete account");
   }
+  return data;
+}
+
+export type ChatMessage = {
+  id: string;
+  salonId: string;
+  customerId: string;
+  senderRole: "customer" | "owner";
+  body: string;
+  createdAt: string;
+  readByCustomer: number;
+  readByOwner: number;
+};
+
+export async function fetchMyMessages(salonId: string, token: string): Promise<ChatMessage[]> {
+  const response = await fetch(`${BASE_URL}/salons/${salonId}/messages`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Failed to fetch messages");
+  return response.json();
+}
+
+export async function sendMyMessage(
+  salonId: string,
+  body: string,
+  token: string
+): Promise<ChatMessage> {
+  const response = await fetch(`${BASE_URL}/salons/${salonId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ body }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to send message");
   return data;
 }

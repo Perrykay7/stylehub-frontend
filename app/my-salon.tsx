@@ -1946,6 +1946,16 @@ export default function MySalonScreen() {
                 )}
               </View>
             )}
+
+            {/* Messages */}
+            <Pressable
+              style={styles.addServiceLink}
+              onPress={() =>
+                router.push({ pathname: "/owner-chat/[salonId]", params: { salonId: salon.id } } as any)
+              }
+            >
+              <Text style={styles.addServiceLinkText}>💬 Messages</Text>
+            </Pressable>
           </View>
         ))}
 

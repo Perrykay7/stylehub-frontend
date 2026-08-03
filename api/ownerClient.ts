@@ -1,4 +1,5 @@
 const BASE_URL = "https://stylehub-backend-42fh.onrender.com";
+export const WS_BASE_URL = BASE_URL.replace(/^http/, "ws");
 
 export type OwnerSalon = {
   id: string;
@@ -413,6 +414,61 @@ export async function markBookingNoShow(
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(data?.error || "Failed to update booking");
+  return data;
+}
+
+export type ChatMessage = {
+  id: string;
+  salonId: string;
+  customerId: string;
+  senderRole: "customer" | "owner";
+  body: string;
+  createdAt: string;
+  readByCustomer: number;
+  readByOwner: number;
+};
+
+export type Conversation = {
+  customerId: string;
+  customerName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+};
+
+export async function fetchOwnerConversations(salonId: string, token: string): Promise<Conversation[]> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/conversations`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch conversations");
+  return response.json();
+}
+
+export async function fetchOwnerThread(
+  salonId: string,
+  customerId: string,
+  token: string
+): Promise<ChatMessage[]> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/messages/${customerId}`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch thread");
+  return response.json();
+}
+
+export async function sendOwnerMessage(
+  salonId: string,
+  customerId: string,
+  body: string,
+  token: string
+): Promise<ChatMessage> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/messages/${customerId}`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ body }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to send message");
   return data;
 }
 
