@@ -1,10 +1,11 @@
-import { useHeaderHeight } from "@react-navigation/elements";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
+  LayoutAnimation,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -25,12 +26,29 @@ export default function OwnerChatThreadScreen() {
   }>();
   const { token } = useAuth();
   const { colors } = useTheme();
-  const headerHeight = useHeaderHeight();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    function animateTo(height: number, e: { duration?: number; easing?: string }) {
+      LayoutAnimation.configureNext({
+        duration: e.duration || 250,
+        update: { type: (LayoutAnimation.Types as any)[e.easing || ""] || LayoutAnimation.Types.keyboard },
+      });
+      setKeyboardHeight(height);
+    }
+    const showSub = Keyboard.addListener("keyboardWillShow", (e) => animateTo(e.endCoordinates.height, e));
+    const hideSub = Keyboard.addListener("keyboardWillHide", (e) => animateTo(0, e));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!token || !salonId || !customerId) return;
@@ -53,6 +71,10 @@ export default function OwnerChatThreadScreen() {
     return () => ws.close();
   }, [token, salonId, customerId]);
 
+  useEffect(() => {
+    listRef.current?.scrollToEnd({ animated: true });
+  }, [messages.length]);
+
   async function handleSend() {
     const body = draft.trim();
     if (!body || !token || !salonId || !customerId) return;
@@ -68,11 +90,7 @@ export default function OwnerChatThreadScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: customerName || "Chat" }} />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior="height"
-        keyboardVerticalOffset={headerHeight}
-      >
+      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
         <Text style={[styles.expiryHint, { color: colors.muted, borderBottomColor: colors.border }]}>
           Messages disappear 24 hours after they're sent
         </Text>
@@ -84,7 +102,6 @@ export default function OwnerChatThreadScreen() {
             data={messages}
             keyExtractor={(m) => m.id}
             contentContainerStyle={styles.listContent}
-            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: colors.muted }]}>No messages yet.</Text>
             }
@@ -121,7 +138,7 @@ export default function OwnerChatThreadScreen() {
             <Text style={styles.sendBtnText}>Send</Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
