@@ -74,6 +74,9 @@ export default function OwnerChatThreadScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={headerHeight}
       >
+        <Text style={[styles.expiryHint, { color: colors.muted, borderBottomColor: colors.border }]}>
+          Messages disappear 24 hours after they're sent
+        </Text>
         {loading ? (
           <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.clay} />
         ) : (
@@ -126,6 +129,13 @@ export default function OwnerChatThreadScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  expiryHint: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 11,
+    textAlign: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
   listContent: { padding: 16, paddingBottom: 8, flexGrow: 1 },
   emptyText: {
     fontFamily: "Manrope_500Medium",

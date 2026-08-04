@@ -120,16 +120,6 @@ export default function SalonDetailScreen() {
           <Text style={styles.hours}>
             Open {salon.openTime} – {salon.closeTime}
           </Text>
-          {token && (
-            <Pressable
-              style={styles.messageBtn}
-              onPress={() =>
-                router.push({ pathname: "/chat/[salonId]", params: { salonId: salon.id, salonName: salon.name } } as any)
-              }
-            >
-              <Text style={styles.messageBtnText}>💬 Message Salon</Text>
-            </Pressable>
-          )}
         </View>
 
         <View style={styles.section}>
@@ -364,20 +354,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: MUTED,
     marginTop: 2,
-  },
-  messageBtn: {
-    alignSelf: "flex-start",
-    marginTop: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: CLAY,
-  },
-  messageBtnText: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 13,
-    color: CLAY,
   },
   sectionTitle: {
     fontFamily: "PlayfairDisplay_700Bold",
