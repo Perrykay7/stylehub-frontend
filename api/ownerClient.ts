@@ -444,6 +444,16 @@ export async function fetchOwnerConversations(salonId: string, token: string): P
   return response.json();
 }
 
+export type OwnerConversation = Conversation & { salonId: string; salonName: string };
+
+export async function fetchAllOwnerConversations(token: string): Promise<OwnerConversation[]> {
+  const response = await fetch(`${BASE_URL}/owner/conversations`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) return [];
+  return response.json();
+}
+
 export async function fetchOwnerThread(
   salonId: string,
   customerId: string,

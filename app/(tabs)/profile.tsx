@@ -11,22 +11,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../data/authContext";
 import { useTheme } from "../../data/themeContext";
 import { fetchMyConversations, fetchNotifications } from "../../api/client";
+import { fetchAllOwnerConversations } from "../../api/ownerClient";
 
 export default function ProfileScreen() {
   const { user, token } = useAuth();
   const { colors } = useTheme();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const isOwner = user?.role === "owner";
 
   useEffect(() => {
     if (!token) return;
     fetchNotifications(token)
       .then((data) => setUnreadNotifications(data.filter((n) => !n.read).length))
       .catch(() => {});
-    fetchMyConversations(token)
+    const fetchConversations = isOwner ? fetchAllOwnerConversations : fetchMyConversations;
+    fetchConversations(token)
       .then((data) => setUnreadMessages(data.reduce((sum, c) => sum + c.unreadCount, 0)))
       .catch(() => {});
-  }, [token]);
+  }, [token, isOwner]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -55,7 +58,10 @@ export default function ProfileScreen() {
             </View>
             <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
           </Pressable>
-          <Pressable style={styles.row} onPress={() => router.push("/messages" as any)}>
+          <Pressable
+            style={styles.row}
+            onPress={() => router.push((isOwner ? "/owner-messages" : "/messages") as any)}
+          >
             <View style={styles.rowLeft}>
               <Text style={[styles.rowText, { color: colors.text }]}>💬 Messages</Text>
               {unreadMessages > 0 && (
