@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -67,7 +66,7 @@ export default function CustomerChatScreen() {
       <Stack.Screen options={{ title: salonName || "Chat" }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior="height"
         keyboardVerticalOffset={headerHeight}
       >
         <Text style={[styles.expiryHint, { color: colors.muted, borderBottomColor: colors.border }]}>
