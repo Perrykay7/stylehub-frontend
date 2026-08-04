@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../data/authContext";
 import { useTheme } from "../data/themeContext";
@@ -29,6 +29,7 @@ function timeAgo(iso: string) {
 export default function MessagesScreen() {
   const { token } = useAuth();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<SalonConversation[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -110,7 +111,7 @@ export default function MessagesScreen() {
       )}
 
       <Modal visible={pickerVisible} animationType="slide" onRequestClose={() => setPickerVisible(false)}>
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           <View style={styles.pickerHeader}>
             <Text style={[styles.pickerTitle, { color: colors.text }]}>Message a Salon</Text>
             <Pressable onPress={() => setPickerVisible(false)}>
@@ -150,7 +151,7 @@ export default function MessagesScreen() {
               )}
             />
           )}
-        </SafeAreaView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
