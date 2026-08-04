@@ -1,11 +1,20 @@
 import { router, Stack } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../data/authContext";
 import { useTheme } from "../data/themeContext";
-import { fetchMyConversations, SalonConversation } from "../api/client";
+import { fetchMyConversations, fetchSalons, Salon, SalonConversation } from "../api/client";
 
 function timeAgo(iso: string) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -23,6 +32,11 @@ export default function MessagesScreen() {
   const [conversations, setConversations] = useState<SalonConversation[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [allSalons, setAllSalons] = useState<Salon[]>([]);
+  const [salonsLoading, setSalonsLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
   useEffect(() => {
     if (!token) return;
     fetchMyConversations(token)
@@ -30,9 +44,32 @@ export default function MessagesScreen() {
       .finally(() => setLoading(false));
   }, [token]);
 
+  function openPicker() {
+    setSearch("");
+    setPickerVisible(true);
+    if (allSalons.length === 0) {
+      setSalonsLoading(true);
+      fetchSalons()
+        .then(setAllSalons)
+        .finally(() => setSalonsLoading(false));
+    }
+  }
+
+  function goToChat(salonId: string, salonName: string) {
+    setPickerVisible(false);
+    router.push({ pathname: "/chat/[salonId]", params: { salonId, salonName } } as any);
+  }
+
+  const filteredSalons = allSalons.filter((s) =>
+    s.name.toLowerCase().includes(search.trim().toLowerCase())
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: "Messages" }} />
+      <Pressable style={[styles.newBtn, { borderColor: colors.clay }]} onPress={openPicker}>
+        <Text style={[styles.newBtnText, { color: colors.clay }]}>+ New Message</Text>
+      </Pressable>
       {loading ? (
         <ActivityIndicator style={{ marginTop: 60 }} size="large" color={colors.clay} />
       ) : (
@@ -44,19 +81,14 @@ export default function MessagesScreen() {
             <View style={styles.emptyState}>
               <Text style={[styles.emptyTitle, { color: colors.text }]}>No messages yet</Text>
               <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-                Message a salon from their page to start a conversation.
+                Tap "+ New Message" above to message a salon.
               </Text>
             </View>
           }
           renderItem={({ item }) => (
             <Pressable
               style={[styles.row, { backgroundColor: colors.card }]}
-              onPress={() =>
-                router.push({
-                  pathname: "/chat/[salonId]",
-                  params: { salonId: item.salonId, salonName: item.salonName },
-                } as any)
-              }
+              onPress={() => goToChat(item.salonId, item.salonName)}
             >
               <View style={{ flex: 1 }}>
                 <View style={styles.rowTop}>
@@ -76,12 +108,66 @@ export default function MessagesScreen() {
           )}
         />
       )}
+
+      <Modal visible={pickerVisible} animationType="slide" onRequestClose={() => setPickerVisible(false)}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+          <View style={styles.pickerHeader}>
+            <Text style={[styles.pickerTitle, { color: colors.text }]}>Message a Salon</Text>
+            <Pressable onPress={() => setPickerVisible(false)}>
+              <Text style={[styles.pickerCancel, { color: colors.clay }]}>Cancel</Text>
+            </Pressable>
+          </View>
+          <TextInput
+            style={[styles.searchInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+            placeholder="Search salons..."
+            placeholderTextColor={colors.muted}
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+          {salonsLoading ? (
+            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.clay} />
+          ) : (
+            <FlatList
+              data={filteredSalons}
+              keyExtractor={(s) => s.id}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={
+                <Text style={[styles.emptySubtitle, { color: colors.muted, marginTop: 30 }]}>
+                  No salons found.
+                </Text>
+              }
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[styles.row, { backgroundColor: colors.card }]}
+                  onPress={() => goToChat(item.id, item.name)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.salonName, { color: colors.text }]}>{item.name}</Text>
+                    <Text style={[styles.lastMessage, { color: colors.muted }]}>{item.category}</Text>
+                  </View>
+                </Pressable>
+              )}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  newBtn: {
+    alignSelf: "flex-start",
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  newBtnText: { fontFamily: "Manrope_700Bold", fontSize: 13 },
   listContent: { padding: 16, paddingBottom: 32 },
   row: {
     flexDirection: "row",
@@ -113,4 +199,25 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: "center", marginTop: 80, paddingHorizontal: 30 },
   emptyTitle: { fontFamily: "Manrope_700Bold", fontSize: 16, marginBottom: 6 },
   emptySubtitle: { fontFamily: "Manrope_500Medium", fontSize: 13, textAlign: "center" },
+  pickerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  pickerTitle: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 20 },
+  pickerCancel: { fontFamily: "Manrope_700Bold", fontSize: 14 },
+  searchInput: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontFamily: "Manrope_500Medium",
+    fontSize: 14,
+  },
 });
