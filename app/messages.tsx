@@ -58,7 +58,13 @@ export default function MessagesScreen() {
 
   function goToChat(salonId: string, salonName: string) {
     setPickerVisible(false);
-    router.push({ pathname: "/chat/[salonId]", params: { salonId, salonName } } as any);
+    // Wait for the modal to finish its close animation before navigating —
+    // closing it and pushing a new screen in the same tick can leave the
+    // modal's native presentation half-torn-down, breaking this screen
+    // underneath when the user comes back to it.
+    setTimeout(() => {
+      router.push({ pathname: "/chat/[salonId]", params: { salonId, salonName } } as any);
+    }, 300);
   }
 
   const filteredSalons = allSalons.filter((s) =>
