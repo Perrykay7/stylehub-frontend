@@ -3,9 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Keyboard,
-  LayoutAnimation,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 
 import { useAuth } from "../../data/authContext";
 import { useTheme } from "../../data/themeContext";
@@ -25,26 +23,8 @@ export default function CustomerChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList>(null);
   const wsRef = useRef<WebSocket | null>(null);
-
-  useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    function animateTo(height: number, e: { duration?: number; easing?: string }) {
-      LayoutAnimation.configureNext({
-        duration: e.duration || 250,
-        update: { type: (LayoutAnimation.Types as any)[e.easing || ""] || LayoutAnimation.Types.keyboard },
-      });
-      setKeyboardHeight(height);
-    }
-    const showSub = Keyboard.addListener("keyboardWillShow", (e) => animateTo(e.endCoordinates.height, e));
-    const hideSub = Keyboard.addListener("keyboardWillHide", (e) => animateTo(0, e));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (!token || !salonId) return;
@@ -84,59 +64,62 @@ export default function CustomerChatScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ title: salonName || "Chat" }} />
-      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
-        <Text style={[styles.expiryHint, { color: colors.muted, borderBottomColor: colors.border }]}>
-          Messages disappear 24 hours after they're sent
-        </Text>
-        {loading ? (
-          <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.clay} />
-        ) : (
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={(m) => m.id}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <Text style={[styles.emptyText, { color: colors.muted }]}>
-                Say hi! Ask about availability, pricing, or anything else.
-              </Text>
-            }
-            renderItem={({ item }) => {
-              const isMe = item.senderRole === "customer";
-              return (
-                <View style={[styles.bubbleRow, isMe && styles.bubbleRowMe]}>
-                  <View
-                    style={[
-                      styles.bubble,
-                      isMe
-                        ? { backgroundColor: colors.clay }
-                        : { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
-                    ]}
-                  >
-                    <Text style={[styles.bubbleText, { color: isMe ? "#fff" : colors.text }]}>{item.body}</Text>
-                  </View>
+      <Text style={[styles.expiryHint, { color: colors.muted, borderBottomColor: colors.border }]}>
+        Messages disappear 24 hours after they're sent
+      </Text>
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.clay} />
+      ) : (
+        <FlatList
+          ref={listRef}
+          style={{ flex: 1 }}
+          data={messages}
+          keyExtractor={(m) => m.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
+              Say hi! Ask about availability, pricing, or anything else.
+            </Text>
+          }
+          renderItem={({ item }) => {
+            const isMe = item.senderRole === "customer";
+            return (
+              <View style={[styles.bubbleRow, isMe && styles.bubbleRowMe]}>
+                <View
+                  style={[
+                    styles.bubble,
+                    isMe
+                      ? { backgroundColor: colors.clay }
+                      : { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={[styles.bubbleText, { color: isMe ? "#fff" : colors.text }]}>{item.body}</Text>
                 </View>
-              );
-            }}
-          />
-        )}
+              </View>
+            );
+          }}
+        />
+      )}
 
-        <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <TextInput
-            style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-            placeholder="Type a message..."
-            placeholderTextColor={colors.muted}
-            value={draft}
-            onChangeText={setDraft}
-            multiline
-          />
-          <Pressable style={[styles.sendBtn, !draft.trim() && { opacity: 0.5 }]} onPress={handleSend} disabled={!draft.trim()}>
-            <Text style={styles.sendBtnText}>Send</Text>
-          </Pressable>
-        </View>
-      </View>
+      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+        <SafeAreaView edges={["bottom"]} style={{ backgroundColor: colors.card }}>
+          <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.muted}
+              value={draft}
+              onChangeText={setDraft}
+              multiline
+            />
+            <Pressable style={[styles.sendBtn, !draft.trim() && { opacity: 0.5 }]} onPress={handleSend} disabled={!draft.trim()}>
+              <Text style={styles.sendBtnText}>Send</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </KeyboardStickyView>
     </SafeAreaView>
   );
 }
