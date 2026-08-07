@@ -76,16 +76,16 @@ export default function SalonDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator style={styles.loading} size="large" color="#C1683C" />
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ActivityIndicator style={styles.loading} size="large" color={colors.clay} />
       </SafeAreaView>
     );
   }
 
   if (error || !salon) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.notFound}>{error ?? "Salon not found."}</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.notFound, { color: colors.muted }]}>{error ?? "Salon not found."}</Text>
       </SafeAreaView>
     );
   }
@@ -109,22 +109,22 @@ export default function SalonDetailScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.name}>{salon.name}</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.name, { color: colors.text }]}>{salon.name}</Text>
           <View style={styles.metaRow}>
             <Text style={styles.category}>{salon.category}</Text>
-            <Text style={styles.dot}>·</Text>
-            <Text style={styles.distance}>{salon.distanceKm} km away</Text>
+            <Text style={[styles.dot, { color: colors.muted }]}>·</Text>
+            <Text style={[styles.distance, { color: colors.muted }]}>{salon.distanceKm} km away</Text>
           </View>
-          <Text style={styles.address}>{salon.address}</Text>
-          <Text style={styles.hours}>
+          <Text style={[styles.address, { color: colors.muted }]}>{salon.address}</Text>
+          <Text style={[styles.hours, { color: colors.muted }]}>
             Open {salon.openTime} – {salon.closeTime}
           </Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Services</Text>
-          <Text style={styles.sectionHint}>Tap a service to book it</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Services</Text>
+          <Text style={[styles.sectionHint, { color: colors.muted }]}>Tap a service to book it</Text>
           {(() => {
             const grouped: Record<string, typeof salon.services> = {};
             salon.services.forEach((s) => {
@@ -136,10 +136,10 @@ export default function SalonDetailScreen() {
             return Object.entries(grouped).map(([cat, services]) => (
               <View key={cat}>
                 {hasCategories && (
-                  <Text style={styles.serviceCategoryLabel}>{cat}</Text>
+                  <Text style={[styles.serviceCategoryLabel, { color: colors.clay }]}>{cat}</Text>
                 )}
                 {services.map((service) => (
-                  <View key={service.id} style={styles.serviceItemWrapper}>
+                  <View key={service.id} style={[styles.serviceItemWrapper, { backgroundColor: colors.cardAlt }]}>
                     <Pressable
                       style={styles.serviceRow}
                       onPress={() =>
@@ -150,10 +150,10 @@ export default function SalonDetailScreen() {
                       }
                     >
                       <View style={styles.serviceInfo}>
-                        <Text style={styles.serviceName}>{service.name}</Text>
-                        <Text style={styles.serviceDuration}>{service.durationMins} min</Text>
+                        <Text style={[styles.serviceName, { color: colors.text }]}>{service.name}</Text>
+                        <Text style={[styles.serviceDuration, { color: colors.muted }]}>{service.durationMins} min</Text>
                       </View>
-                      <Text style={styles.servicePrice}>GHS {service.price}</Text>
+                      <Text style={[styles.servicePrice, { color: colors.clay }]}>GHS {service.price}</Text>
                     </Pressable>
                     {service.images.length > 0 && (
                       <ScrollView
@@ -192,8 +192,8 @@ export default function SalonDetailScreen() {
             <View key={review.id} style={[styles.reviewItem, { borderBottomColor: colors.border }]}>
               <View style={styles.reviewHeader}>
                 <Text style={[styles.reviewerName, { color: colors.text }]}>{review.customerName}</Text>
-                <View style={styles.reviewRatingPill}>
-                  <Text style={styles.reviewRatingText}>★ {review.rating}</Text>
+                <View style={[styles.reviewRatingPill, { backgroundColor: colors.cardAlt }]}>
+                  <Text style={[styles.reviewRatingText, { color: colors.clay }]}>★ {review.rating}</Text>
                 </View>
               </View>
               <Text style={[styles.reviewComment, { color: colors.text }]}>{review.comment}</Text>

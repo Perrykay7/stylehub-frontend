@@ -13,7 +13,9 @@ type ThemeContextType = {
 
 export const lightColors = {
   background: "#FBF7F2",
+  backgroundGradient: ["#FDF9F4", "#F0DFC4"] as [string, string],
   card: "#ffffff",
+  cardAlt: "#F3ECE2",
   text: "#2B2622",
   muted: "#8C8378",
   clay: "#C1683C",
@@ -24,15 +26,17 @@ export const lightColors = {
 };
 
 export const darkColors: typeof lightColors = {
-  background: "#1A1512",
-  card: "#2A2118",
+  background: "#121212",
+  backgroundGradient: ["#161616", "#2B2115"] as [string, string],
+  card: "#1E1E1E",
+  cardAlt: "#2A2A2A",
   text: "#F0EAE2",
-  muted: "#9B8F85",
+  muted: "#9B9691",
   clay: "#C1683C",
   rust: "#E05A3A",
-  border: "#3A2E25",
-  inputBg: "#2A2118",
-  sectionBg: "#2A2118",
+  border: "#333333",
+  inputBg: "#1E1E1E",
+  sectionBg: "#1E1E1E",
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
