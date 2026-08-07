@@ -231,6 +231,39 @@ export async function removeServiceImage(
   return response.json();
 }
 
+export async function addProfessionalImage(
+  professionalId: string,
+  imageUrl: string,
+  token: string
+): Promise<ServiceImage> {
+  const response = await fetch(`${BASE_URL}/owner/professionals/${professionalId}/images`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ imageUrl }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Failed to add photo");
+  }
+  return data;
+}
+
+export async function removeProfessionalImage(
+  professionalId: string,
+  imageId: string,
+  token: string
+) {
+  const response = await fetch(
+    `${BASE_URL}/owner/professionals/${professionalId}/images/${imageId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }
+  );
+  if (!response.ok) throw new Error("Failed to remove photo");
+  return response.json();
+}
+
 export type SalonHour = {
   id: string;
   salonId: string;

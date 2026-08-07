@@ -16,8 +16,11 @@ import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../data/authContext";
+import { fetchProfessionalById, ServiceImage } from "../api/client";
 import {
     addOwnerService,
+    addProfessionalImage,
+    removeProfessionalImage,
     addServiceImage,
     removeServiceImage,
     uploadServicePhoto,
@@ -271,6 +274,12 @@ export default function MySalonScreen() {
   const [timeOffBlocks, setTimeOffBlocks] = useState<UnavailabilityBlock[]>([]);
   const [loadingTimeOff, setLoadingTimeOff] = useState(false);
   const [togglingTimeOff, setTogglingTimeOff] = useState<string | null>(null);
+
+  // Professional portfolio state
+  const [portfolioProfessionalId, setPortfolioProfessionalId] = useState<string | null>(null);
+  const [portfolioImages, setPortfolioImages] = useState<Record<string, ServiceImage[]>>({});
+  const [loadingPortfolio, setLoadingPortfolio] = useState(false);
+  const [uploadingPortfolioId, setUploadingPortfolioId] = useState<string | null>(null);
 
   // Loyalty program state
   const [loyaltySalonId, setLoyaltySalonId] = useState<string | null>(null);
@@ -586,6 +595,61 @@ export default function MySalonScreen() {
     try {
       await removeServiceImage(serviceId, imageId, token);
       await loadData();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not remove photo.");
+    }
+  }
+
+  async function handleLoadPortfolio(professionalId: string) {
+    setLoadingPortfolio(true);
+    try {
+      const detail = await fetchProfessionalById(professionalId);
+      setPortfolioImages((prev) => ({ ...prev, [professionalId]: detail.images }));
+    } catch {
+      // leave whatever was cached, if anything
+    } finally {
+      setLoadingPortfolio(false);
+    }
+  }
+
+  async function handlePickPortfolioPhoto(professionalId: string, existingCount: number) {
+    if (!token) return;
+    if (existingCount >= 3) {
+      Alert.alert("Limit reached", "You can add up to 3 portfolio photos per professional.");
+      return;
+    }
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo access to upload a picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setUploadingPortfolioId(professionalId);
+    try {
+      const photoUrl = await uploadProfessionalPhoto(result.assets[0].uri, token);
+      await addProfessionalImage(professionalId, photoUrl, token);
+      await handleLoadPortfolio(professionalId);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not upload photo.");
+    } finally {
+      setUploadingPortfolioId(null);
+    }
+  }
+
+  async function handleRemovePortfolioPhoto(professionalId: string, imageId: string) {
+    if (!token) return;
+    try {
+      await removeProfessionalImage(professionalId, imageId, token);
+      await handleLoadPortfolio(professionalId);
     } catch (err: any) {
       Alert.alert("Error", err.message || "Could not remove photo.");
     }
@@ -1462,6 +1526,71 @@ export default function MySalonScreen() {
                         <Text style={styles.slotHint}>
                           Tap "Whole day off" to block the entire day, or tap individual times. Tap again to undo.
                         </Text>
+                      </View>
+                    )}
+
+                    <Pressable
+                      style={styles.addServiceLink}
+                      onPress={() => {
+                        if (portfolioProfessionalId === pro.id) {
+                          setPortfolioProfessionalId(null);
+                        } else {
+                          setPortfolioProfessionalId(pro.id);
+                          handleLoadPortfolio(pro.id);
+                        }
+                      }}
+                    >
+                      <Text style={styles.addServiceLinkText}>
+                        {portfolioProfessionalId === pro.id ? "▲ Hide Portfolio" : "📸 Portfolio"}
+                      </Text>
+                    </Pressable>
+
+                    {portfolioProfessionalId === pro.id && (
+                      <View style={styles.serviceForm}>
+                        <Text style={styles.promoTargetLabel}>
+                          Photos customers see on {pro.name}'s profile
+                        </Text>
+                        {loadingPortfolio ? (
+                          <ActivityIndicator color="#C1683C" />
+                        ) : (
+                          <View style={styles.servicePhotosRow}>
+                            {(portfolioImages[pro.id] || []).map((image) => (
+                              <View key={image.id} style={styles.servicePhotoThumbWrap}>
+                                <Image source={{ uri: image.url }} style={styles.servicePhotoThumb} />
+                                <Pressable
+                                  style={styles.servicePhotoRemoveBtn}
+                                  onPress={() =>
+                                    Alert.alert("Remove photo", "Remove this photo from the portfolio?", [
+                                      { text: "Cancel", style: "cancel" },
+                                      {
+                                        text: "Remove",
+                                        style: "destructive",
+                                        onPress: () => handleRemovePortfolioPhoto(pro.id, image.id),
+                                      },
+                                    ])
+                                  }
+                                >
+                                  <Text style={styles.servicePhotoRemoveBtnText}>×</Text>
+                                </Pressable>
+                              </View>
+                            ))}
+                            {(portfolioImages[pro.id] || []).length < 3 &&
+                              (uploadingPortfolioId === pro.id ? (
+                                <View style={styles.servicePhotoAddBtn}>
+                                  <ActivityIndicator size="small" color={CLAY} />
+                                </View>
+                              ) : (
+                                <Pressable
+                                  style={styles.servicePhotoAddBtn}
+                                  onPress={() =>
+                                    handlePickPortfolioPhoto(pro.id, (portfolioImages[pro.id] || []).length)
+                                  }
+                                >
+                                  <Text style={styles.servicePhotoAddBtnText}>+ Photo</Text>
+                                </Pressable>
+                              ))}
+                          </View>
+                        )}
                       </View>
                     )}
                   </View>

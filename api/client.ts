@@ -66,6 +66,25 @@ export type Booking = {
   hasRating: number;
 };
 
+export type ProfessionalDetail = {
+  id: string;
+  salonId: string;
+  salonName: string | null;
+  name: string;
+  photoUrl: string | null;
+  createdAt: string;
+  images: ServiceImage[];
+  avgRating: number | null;
+  ratingCount: number;
+  reviews: { rating: number; comment: string; createdAt: string }[];
+};
+
+export async function fetchProfessionalById(id: string): Promise<ProfessionalDetail> {
+  const response = await fetch(`${BASE_URL}/professionals/${id}`);
+  if (!response.ok) throw new Error("Failed to fetch professional");
+  return response.json();
+}
+
 export async function fetchSalons(): Promise<Salon[]> {
   const response = await fetch(`${BASE_URL}/salons`);
   if (!response.ok) {

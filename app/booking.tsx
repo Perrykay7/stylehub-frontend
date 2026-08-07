@@ -319,15 +319,22 @@ export default function BookingScreen() {
                     setSelectedTime(null);
                   }}
                 >
-                  {pro.photoUrl ? (
-                    <Image source={{ uri: pro.photoUrl }} style={styles.proAvatar} />
-                  ) : (
-                    <View style={styles.proAvatarPlaceholder}>
-                      <Text style={styles.proInitial}>
-                        {pro.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      router.push({ pathname: "/professional/[id]", params: { id: pro.id } } as any);
+                    }}
+                  >
+                    {pro.photoUrl ? (
+                      <Image source={{ uri: pro.photoUrl }} style={styles.proAvatar} />
+                    ) : (
+                      <View style={styles.proAvatarPlaceholder}>
+                        <Text style={styles.proInitial}>
+                          {pro.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.proName}>{pro.name}</Text>
                     {isUnavailable ? (
@@ -341,6 +348,15 @@ export default function BookingScreen() {
                     ) : (
                       <Text style={styles.proMeta}>No ratings yet</Text>
                     )}
+                    <Text
+                      style={styles.proViewProfile}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push({ pathname: "/professional/[id]", params: { id: pro.id } } as any);
+                      }}
+                    >
+                      View profile
+                    </Text>
                   </View>
                   {isSelected && (
                     <View style={styles.proCheckCircle}>
@@ -588,6 +604,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: MUTED,
     marginTop: 2,
+  },
+  proViewProfile: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
+    color: CLAY,
+    marginTop: 4,
   },
   proCheckCircle: {
     width: 26,
