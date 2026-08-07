@@ -368,21 +368,22 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   serviceItemWrapper: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3ECE2",
-    paddingBottom: 10,
+    backgroundColor: PAPER,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
   },
   serviceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 14,
   },
   serviceInfo: {
     flex: 1,
   },
   servicePhotosRow: {
     gap: 10,
+    marginTop: 12,
   },
   servicePhotoBig: {
     width: 220,
