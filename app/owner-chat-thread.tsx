@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -14,7 +15,14 @@ import { KeyboardStickyView } from "react-native-keyboard-controller";
 
 import { useAuth } from "../data/authContext";
 import { useTheme } from "../data/themeContext";
-import { ChatMessage, fetchOwnerThread, sendOwnerMessage, WS_BASE_URL } from "../api/ownerClient";
+import {
+  ChatMessage,
+  deleteOwnerMessage,
+  editOwnerMessage,
+  fetchOwnerThread,
+  sendOwnerMessage,
+  WS_BASE_URL,
+} from "../api/ownerClient";
 
 export default function OwnerChatThreadScreen() {
   const { salonId, customerId, customerName } = useLocalSearchParams<{
@@ -27,6 +35,7 @@ export default function OwnerChatThreadScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -44,6 +53,10 @@ export default function OwnerChatThreadScreen() {
         const data = JSON.parse(event.data);
         if (data.type === "message") {
           setMessages((prev) => (prev.some((m) => m.id === data.message.id) ? prev : [...prev, data.message]));
+        } else if (data.type === "message_edited") {
+          setMessages((prev) => prev.map((m) => (m.id === data.message.id ? data.message : m)));
+        } else if (data.type === "message_deleted") {
+          setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
         }
       } catch {}
     };
@@ -58,6 +71,21 @@ export default function OwnerChatThreadScreen() {
   async function handleSend() {
     const body = draft.trim();
     if (!body || !token || !salonId || !customerId) return;
+
+    if (editingMessageId) {
+      const id = editingMessageId;
+      setDraft("");
+      setEditingMessageId(null);
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "edit_message", messageId: id, body }));
+        setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, body, edited: 1 } : m)));
+      } else {
+        const updated = await editOwnerMessage(id, body, token).catch(() => null);
+        if (updated) setMessages((prev) => prev.map((m) => (m.id === id ? updated : m)));
+      }
+      return;
+    }
+
     setDraft("");
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "message", body }));
@@ -65,6 +93,44 @@ export default function OwnerChatThreadScreen() {
       const message = await sendOwnerMessage(salonId, customerId, body, token).catch(() => null);
       if (message) setMessages((prev) => [...prev, message]);
     }
+  }
+
+  function handleStartEdit(message: ChatMessage) {
+    setEditingMessageId(message.id);
+    setDraft(message.body);
+  }
+
+  function handleCancelEdit() {
+    setEditingMessageId(null);
+    setDraft("");
+  }
+
+  function handleDeleteMessage(messageId: string) {
+    Alert.alert("Delete message?", "This can't be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          setMessages((prev) => prev.filter((m) => m.id !== messageId));
+          if (editingMessageId === messageId) handleCancelEdit();
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: "delete_message", messageId }));
+          } else if (token) {
+            deleteOwnerMessage(messageId, token).catch(() => {});
+          }
+        },
+      },
+    ]);
+  }
+
+  function handleLongPressMessage(message: ChatMessage) {
+    if (message.senderRole !== "owner") return;
+    Alert.alert("Message options", undefined, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Edit", onPress: () => handleStartEdit(message) },
+      { text: "Delete", style: "destructive", onPress: () => handleDeleteMessage(message.id) },
+    ]);
   }
 
   return (
@@ -89,7 +155,8 @@ export default function OwnerChatThreadScreen() {
             const isMe = item.senderRole === "owner";
             return (
               <View style={[styles.bubbleRow, isMe && styles.bubbleRowMe]}>
-                <View
+                <Pressable
+                  onLongPress={() => handleLongPressMessage(item)}
                   style={[
                     styles.bubble,
                     isMe
@@ -98,7 +165,12 @@ export default function OwnerChatThreadScreen() {
                   ]}
                 >
                   <Text style={[styles.bubbleText, { color: isMe ? "#fff" : colors.text }]}>{item.body}</Text>
-                </View>
+                  {!!item.edited && (
+                    <Text style={[styles.editedTag, { color: isMe ? "rgba(255,255,255,0.7)" : colors.muted }]}>
+                      (edited)
+                    </Text>
+                  )}
+                </Pressable>
               </View>
             );
           }}
@@ -107,6 +179,14 @@ export default function OwnerChatThreadScreen() {
 
       <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
         <SafeAreaView edges={["bottom"]} style={{ backgroundColor: colors.card }}>
+          {editingMessageId && (
+            <View style={[styles.editingBar, { borderTopColor: colors.border }]}>
+              <Text style={[styles.editingBarText, { color: colors.muted }]}>Editing message</Text>
+              <Pressable onPress={handleCancelEdit}>
+                <Text style={[styles.editingBarCancel, { color: colors.clay }]}>Cancel</Text>
+              </Pressable>
+            </View>
+          )}
           <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
@@ -117,7 +197,7 @@ export default function OwnerChatThreadScreen() {
               multiline
             />
             <Pressable style={[styles.sendBtn, !draft.trim() && { opacity: 0.5 }]} onPress={handleSend} disabled={!draft.trim()}>
-              <Text style={styles.sendBtnText}>Send</Text>
+              <Text style={styles.sendBtnText}>{editingMessageId ? "Save" : "Send"}</Text>
             </Pressable>
           </View>
         </SafeAreaView>
@@ -155,6 +235,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  editedTag: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 10,
+    marginTop: 2,
+  },
+  editingBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  editingBarText: { fontFamily: "Manrope_600SemiBold", fontSize: 12 },
+  editingBarCancel: { fontFamily: "Manrope_700Bold", fontSize: 12 },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",

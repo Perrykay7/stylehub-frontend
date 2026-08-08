@@ -482,6 +482,7 @@ export type ChatMessage = {
   createdAt: string;
   readByCustomer: number;
   readByOwner: number;
+  edited?: number;
 };
 
 export type SalonConversation = {
@@ -521,4 +522,28 @@ export async function sendMyMessage(
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(data?.error || "Failed to send message");
   return data;
+}
+
+export async function editMyMessage(
+  messageId: string,
+  body: string,
+  token: string
+): Promise<ChatMessage> {
+  const response = await fetch(`${BASE_URL}/messages/${messageId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ body }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to edit message");
+  return data;
+}
+
+export async function deleteMyMessage(messageId: string, token: string) {
+  const response = await fetch(`${BASE_URL}/messages/${messageId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Failed to delete message");
+  return response.json();
 }

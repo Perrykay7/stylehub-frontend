@@ -459,6 +459,7 @@ export type ChatMessage = {
   createdAt: string;
   readByCustomer: number;
   readByOwner: number;
+  edited?: number;
 };
 
 export type Conversation = {
@@ -513,6 +514,30 @@ export async function sendOwnerMessage(
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(data?.error || "Failed to send message");
   return data;
+}
+
+export async function editOwnerMessage(
+  messageId: string,
+  body: string,
+  token: string
+): Promise<ChatMessage> {
+  const response = await fetch(`${BASE_URL}/owner/messages/${messageId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ body }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to edit message");
+  return data;
+}
+
+export async function deleteOwnerMessage(messageId: string, token: string) {
+  const response = await fetch(`${BASE_URL}/owner/messages/${messageId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to delete message");
+  return response.json();
 }
 
 export async function updateOwnerSalon(
