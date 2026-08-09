@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -20,7 +21,6 @@ import {
   Booking,
   fetchBookings,
   fetchMyFavorites,
-  fetchNotifications,
   fetchSalons,
   removeFavorite,
   Salon,
@@ -194,7 +194,6 @@ export default function BrowseScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     fetchSalons()
@@ -218,9 +217,6 @@ export default function BrowseScreen() {
     fetchMyFavorites(token)
       .then((ids) => setFavoriteIds(new Set(ids)))
       .catch(() => setFavoriteIds(new Set()));
-    fetchNotifications(token)
-      .then((data) => setUnreadNotifications(data.filter((n) => !n.read).length))
-      .catch(() => {});
   }, [token]);
 
   function toggleFavorite(salonId: string) {
@@ -303,22 +299,6 @@ export default function BrowseScreen() {
         <Text style={[styles.header, { color: colors.text }]}>Welcome, {user?.name?.split(" ")[0]}</Text>
         <Text style={[styles.subheader, { color: colors.muted }]}>Nearby Salons & Spas</Text>
         <View style={styles.headerActions}>
-          <Pressable
-            style={styles.notificationsLink}
-            onPress={() => {
-              setUnreadNotifications(0);
-              router.push("/notifications");
-            }}
-          >
-            <Text style={[styles.myBookingsLink, { color: colors.text }]}>🔔 Notifications</Text>
-            {unreadNotifications > 0 && (
-              <View style={styles.notificationsBadge}>
-                <Text style={styles.notificationsBadgeText}>
-                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
-                </Text>
-              </View>
-            )}
-          </Pressable>
           <Pressable onPress={() => router.push("/my-bookings")}>
             <Text style={[styles.myBookingsLink, { color: colors.text }]}>My Bookings</Text>
           </Pressable>
@@ -327,9 +307,6 @@ export default function BrowseScreen() {
               <Text style={[styles.myBookingsLink, { color: colors.text }]}>My Salon</Text>
             </Pressable>
           )}
-          <Pressable onPress={() => router.push("/settings")}>
-            <Text style={[styles.myBookingsLink, { color: colors.text }]}>Settings</Text>
-          </Pressable>
         </View>
       </View>
       <TextInput
@@ -371,7 +348,8 @@ export default function BrowseScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <LinearGradient colors={colors.backgroundGradient} style={styles.gradient}>
+    <SafeAreaView style={styles.container}>
       {loading ? (
         <>
           {ListHeader}
@@ -451,6 +429,7 @@ export default function BrowseScreen() {
         />
       )}
     </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -462,9 +441,11 @@ const MUTED = "#8C8378";
 const RUST = "#A8442B";
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: PAPER,
   },
   headerContainer: {
     paddingHorizontal: 20,
@@ -499,26 +480,6 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_600SemiBold",
     fontSize: 13,
     color: INK,
-  },
-  notificationsLink: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  notificationsBadge: {
-    marginLeft: 4,
-    marginTop: -6,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: RUST,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-  },
-  notificationsBadgeText: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 9,
-    color: "#fff",
   },
   logoutLink: {
     fontFamily: "Manrope_600SemiBold",
