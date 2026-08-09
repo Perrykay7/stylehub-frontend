@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -6,6 +7,7 @@ import {
   FlatList,
   Keyboard,
   LayoutAnimation,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -34,6 +36,7 @@ export default function CustomerChatScreen() {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [menuMessage, setMenuMessage] = useState<ChatMessage | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -142,11 +145,7 @@ export default function CustomerChatScreen() {
 
   function handleLongPressMessage(message: ChatMessage) {
     if (message.senderRole !== "customer") return;
-    Alert.alert("Message options", undefined, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Edit", onPress: () => handleStartEdit(message) },
-      { text: "Delete", style: "destructive", onPress: () => handleDeleteMessage(message.id) },
-    ]);
+    setMenuMessage(message);
   }
 
   return (
@@ -218,6 +217,34 @@ export default function CustomerChatScreen() {
           </Pressable>
         </View>
       </View>
+
+      <Modal visible={!!menuMessage} transparent animationType="fade" onRequestClose={() => setMenuMessage(null)}>
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuMessage(null)}>
+          <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
+            <Pressable
+              style={styles.menuRow}
+              onPress={() => {
+                if (menuMessage) handleStartEdit(menuMessage);
+                setMenuMessage(null);
+              }}
+            >
+              <Text style={[styles.menuRowText, { color: colors.text }]}>Edit</Text>
+              <Ionicons name="pencil-outline" size={18} color={colors.text} />
+            </Pressable>
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            <Pressable
+              style={styles.menuRow}
+              onPress={() => {
+                if (menuMessage) handleDeleteMessage(menuMessage.id);
+                setMenuMessage(null);
+              }}
+            >
+              <Text style={[styles.menuRowText, { color: "#FF3B30" }]}>Delete</Text>
+              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -294,5 +321,35 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_700Bold",
     fontSize: 14,
     color: "#fff",
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuCard: {
+    width: 220,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  menuRowText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 15,
+  },
+  menuDivider: {
+    height: 1,
   },
 });
