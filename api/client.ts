@@ -32,6 +32,8 @@ export type Salon = {
   imageUrl: string;
   openTime: string;
   closeTime: string;
+  customerServicePhone: string | null;
+  customerServiceEmail: string | null;
   services: Service[];
   reviews: Review[];
 };

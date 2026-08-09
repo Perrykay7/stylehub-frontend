@@ -48,6 +48,7 @@ import {
     fetchProfessionalUnavailability,
     fetchLoyaltySettings,
     updateLoyaltySettings,
+    updateCustomerServiceContact,
     markProfessionalUnavailable,
     removeProfessionalUnavailability,
     LoyaltySettings,
@@ -288,6 +289,12 @@ export default function MySalonScreen() {
   const [loyaltyDiscount, setLoyaltyDiscount] = useState("10");
   const [loadingLoyalty, setLoadingLoyalty] = useState(false);
   const [savingLoyalty, setSavingLoyalty] = useState(false);
+
+  // Customer service contact state
+  const [customerServiceSalonId, setCustomerServiceSalonId] = useState<string | null>(null);
+  const [csPhone, setCsPhone] = useState("");
+  const [csEmail, setCsEmail] = useState("");
+  const [savingCs, setSavingCs] = useState(false);
 
   async function loadData() {
     if (!token) return;
@@ -1025,6 +1032,34 @@ export default function MySalonScreen() {
       Alert.alert("Error", err.message || "Could not save loyalty program settings.");
     } finally {
       setSavingLoyalty(false);
+    }
+  }
+
+  function handleToggleCustomerService(salon: OwnerSalon) {
+    if (customerServiceSalonId === salon.id) {
+      setCustomerServiceSalonId(null);
+    } else {
+      setCustomerServiceSalonId(salon.id);
+      setCsPhone(salon.customerServicePhone || "");
+      setCsEmail(salon.customerServiceEmail || "");
+    }
+  }
+
+  async function handleSaveCustomerService(salonId: string) {
+    if (!token) return;
+    setSavingCs(true);
+    try {
+      await updateCustomerServiceContact(
+        salonId,
+        { customerServicePhone: csPhone.trim(), customerServiceEmail: csEmail.trim() },
+        token
+      );
+      await loadData();
+      setCustomerServiceSalonId(null);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not save customer service contact.");
+    } finally {
+      setSavingCs(false);
     }
   }
 
@@ -2073,6 +2108,51 @@ export default function MySalonScreen() {
                     </Text>
                   </>
                 )}
+              </View>
+            )}
+
+            {/* Customer Service contact (shown to customers on this salon's page) */}
+            <Pressable
+              style={styles.addServiceLink}
+              onPress={() => handleToggleCustomerService(salon)}
+            >
+              <Text style={styles.addServiceLinkText}>
+                {customerServiceSalonId === salon.id ? "▲ Hide Customer Service" : "📞 Customer Service"}
+              </Text>
+            </Pressable>
+
+            {customerServiceSalonId === salon.id && (
+              <View style={styles.serviceForm}>
+                <Text style={styles.promoTargetLabel}>
+                  Contact info customers see on your salon's page
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Phone number"
+                  placeholderTextColor="#A89D8F"
+                  keyboardType="phone-pad"
+                  value={csPhone}
+                  onChangeText={setCsPhone}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email address"
+                  placeholderTextColor="#A89D8F"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={csEmail}
+                  onChangeText={setCsEmail}
+                />
+                <Pressable
+                  style={[styles.smallButton, savingCs && styles.buttonDisabled]}
+                  onPress={() => handleSaveCustomerService(salon.id)}
+                  disabled={savingCs}
+                >
+                  <Text style={styles.smallButtonText}>{savingCs ? "Saving..." : "Save"}</Text>
+                </Pressable>
+                <Text style={styles.slotHint}>
+                  Leave a field blank to hide it from customers. Only you can edit this — other salon owners can't see or change it.
+                </Text>
               </View>
             )}
 

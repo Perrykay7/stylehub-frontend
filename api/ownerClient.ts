@@ -10,6 +10,8 @@ export type OwnerSalon = {
   imageUrl: string;
   openTime: string;
   closeTime: string;
+  customerServicePhone: string | null;
+  customerServiceEmail: string | null;
   services: {
     id: string;
     name: string;
@@ -559,6 +561,21 @@ export async function updateOwnerSalon(
   });
   if (!response.ok) throw new Error("Failed to update salon");
   return response.json();
+}
+
+export async function updateCustomerServiceContact(
+  salonId: string,
+  payload: { customerServicePhone: string; customerServiceEmail: string },
+  token: string
+): Promise<{ customerServicePhone: string | null; customerServiceEmail: string | null }> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/customer-service`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to update customer service contact");
+  return data;
 }
 
 export async function deleteOwnerSalon(salonId: string, token: string) {

@@ -5,6 +5,7 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
+    Linking,
     Modal,
     Platform,
     Pressable,
@@ -177,6 +178,25 @@ export default function SalonDetailScreen() {
             ));
           })()}
         </View>
+
+        {(salon.customerServicePhone || salon.customerServiceEmail) && (
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Customer Service</Text>
+            <Text style={[styles.sectionHint, { color: colors.muted }]}>
+              Need help? Reach out to us directly:
+            </Text>
+            {salon.customerServicePhone && (
+              <Pressable onPress={() => Linking.openURL(`tel:${salon.customerServicePhone}`)}>
+                <Text style={styles.supportLink}>📞 {salon.customerServicePhone}</Text>
+              </Pressable>
+            )}
+            {salon.customerServiceEmail && (
+              <Pressable onPress={() => Linking.openURL(`mailto:${salon.customerServiceEmail}`)}>
+                <Text style={styles.supportLink}>✉️ {salon.customerServiceEmail}</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
 
         <View style={[styles.section, styles.lastSection, { backgroundColor: colors.card }]}>
           <View style={styles.reviewsHeader}>
@@ -366,6 +386,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: MUTED,
     marginBottom: 10,
+  },
+  supportLink: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 14,
+    color: CLAY,
+    marginBottom: 8,
   },
   serviceItemWrapper: {
     backgroundColor: PAPER,
