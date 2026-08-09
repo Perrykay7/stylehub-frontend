@@ -4,6 +4,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Keyboard,
+  LayoutAnimation,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
 
 import { useAuth } from "../data/authContext";
 import { useTheme } from "../data/themeContext";
@@ -36,8 +38,26 @@ export default function OwnerChatThreadScreen() {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    function animateTo(height: number, e: { duration?: number; easing?: string }) {
+      LayoutAnimation.configureNext({
+        duration: e.duration || 250,
+        update: { type: (LayoutAnimation.Types as any)[e.easing || ""] || LayoutAnimation.Types.keyboard },
+      });
+      setKeyboardHeight(height);
+    }
+    const showSub = Keyboard.addListener("keyboardWillShow", (e) => animateTo(e.endCoordinates.height, e));
+    const hideSub = Keyboard.addListener("keyboardWillHide", (e) => animateTo(0, e));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!token || !salonId || !customerId) return;
@@ -134,74 +154,72 @@ export default function OwnerChatThreadScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top", "left", "right"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: customerName || "Chat" }} />
-      <Text style={[styles.expiryHint, { color: colors.muted, borderBottomColor: colors.border }]}>
-        Messages disappear 24 hours after they're sent
-      </Text>
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.clay} />
-      ) : (
-        <FlatList
-          ref={listRef}
-          style={{ flex: 1 }}
-          data={messages}
-          keyExtractor={(m) => m.id}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: colors.muted }]}>No messages yet.</Text>
-          }
-          renderItem={({ item }) => {
-            const isMe = item.senderRole === "owner";
-            return (
-              <View style={[styles.bubbleRow, isMe && styles.bubbleRowMe]}>
-                <Pressable
-                  onLongPress={() => handleLongPressMessage(item)}
-                  style={[
-                    styles.bubble,
-                    isMe
-                      ? { backgroundColor: colors.clay }
-                      : { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
-                  ]}
-                >
-                  <Text style={[styles.bubbleText, { color: isMe ? "#fff" : colors.text }]}>{item.body}</Text>
-                  {!!item.edited && (
-                    <Text style={[styles.editedTag, { color: isMe ? "rgba(255,255,255,0.7)" : colors.muted }]}>
-                      (edited)
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
-            );
-          }}
-        />
-      )}
+      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
+        <Text style={[styles.expiryHint, { color: colors.muted, borderBottomColor: colors.border }]}>
+          Messages disappear 24 hours after they're sent
+        </Text>
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.clay} />
+        ) : (
+          <FlatList
+            ref={listRef}
+            style={{ flex: 1 }}
+            data={messages}
+            keyExtractor={(m) => m.id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { color: colors.muted }]}>No messages yet.</Text>
+            }
+            renderItem={({ item }) => {
+              const isMe = item.senderRole === "owner";
+              return (
+                <View style={[styles.bubbleRow, isMe && styles.bubbleRowMe]}>
+                  <Pressable
+                    onLongPress={() => handleLongPressMessage(item)}
+                    style={[
+                      styles.bubble,
+                      isMe
+                        ? { backgroundColor: colors.clay }
+                        : { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={[styles.bubbleText, { color: isMe ? "#fff" : colors.text }]}>{item.body}</Text>
+                    {!!item.edited && (
+                      <Text style={[styles.editedTag, { color: isMe ? "rgba(255,255,255,0.7)" : colors.muted }]}>
+                        (edited)
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+              );
+            }}
+          />
+        )}
 
-      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
-        <SafeAreaView edges={["bottom"]} style={{ backgroundColor: colors.card }}>
-          {editingMessageId && (
-            <View style={[styles.editingBar, { borderTopColor: colors.border }]}>
-              <Text style={[styles.editingBarText, { color: colors.muted }]}>Editing message</Text>
-              <Pressable onPress={handleCancelEdit}>
-                <Text style={[styles.editingBarCancel, { color: colors.clay }]}>Cancel</Text>
-              </Pressable>
-            </View>
-          )}
-          <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-              placeholder="Type a message..."
-              placeholderTextColor={colors.muted}
-              value={draft}
-              onChangeText={setDraft}
-              multiline
-            />
-            <Pressable style={[styles.sendBtn, !draft.trim() && { opacity: 0.5 }]} onPress={handleSend} disabled={!draft.trim()}>
-              <Text style={styles.sendBtnText}>{editingMessageId ? "Save" : "Send"}</Text>
+        {editingMessageId && (
+          <View style={[styles.editingBar, { borderTopColor: colors.border }]}>
+            <Text style={[styles.editingBarText, { color: colors.muted }]}>Editing message</Text>
+            <Pressable onPress={handleCancelEdit}>
+              <Text style={[styles.editingBarCancel, { color: colors.clay }]}>Cancel</Text>
             </Pressable>
           </View>
-        </SafeAreaView>
-      </KeyboardStickyView>
+        )}
+        <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+          <TextInput
+            style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+            placeholder="Type a message..."
+            placeholderTextColor={colors.muted}
+            value={draft}
+            onChangeText={setDraft}
+            multiline
+          />
+          <Pressable style={[styles.sendBtn, !draft.trim() && { opacity: 0.5 }]} onPress={handleSend} disabled={!draft.trim()}>
+            <Text style={styles.sendBtnText}>{editingMessageId ? "Save" : "Send"}</Text>
+          </Pressable>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
