@@ -48,10 +48,6 @@ import {
     fetchProfessionalUnavailability,
     fetchLoyaltySettings,
     updateLoyaltySettings,
-    addCustomerServiceContact,
-    updateCustomerServiceContact,
-    deleteCustomerServiceContact,
-    CustomerServiceContact,
     markProfessionalUnavailable,
     removeProfessionalUnavailability,
     LoyaltySettings,
@@ -292,14 +288,6 @@ export default function MySalonScreen() {
   const [loyaltyDiscount, setLoyaltyDiscount] = useState("10");
   const [loadingLoyalty, setLoadingLoyalty] = useState(false);
   const [savingLoyalty, setSavingLoyalty] = useState(false);
-
-  // Customer service contacts state
-  const [customerServiceSalonId, setCustomerServiceSalonId] = useState<string | null>(null);
-  const [editingContactId, setEditingContactId] = useState<string | null>(null);
-  const [csLabel, setCsLabel] = useState("");
-  const [csPhone, setCsPhone] = useState("");
-  const [csEmail, setCsEmail] = useState("");
-  const [savingCs, setSavingCs] = useState(false);
 
   async function loadData() {
     if (!token) return;
@@ -1038,72 +1026,6 @@ export default function MySalonScreen() {
     } finally {
       setSavingLoyalty(false);
     }
-  }
-
-  function resetContactForm() {
-    setEditingContactId(null);
-    setCsLabel("");
-    setCsPhone("");
-    setCsEmail("");
-  }
-
-  function handleToggleCustomerService(salon: OwnerSalon) {
-    if (customerServiceSalonId === salon.id) {
-      setCustomerServiceSalonId(null);
-    } else {
-      setCustomerServiceSalonId(salon.id);
-      resetContactForm();
-    }
-  }
-
-  function handleStartEditContact(contact: CustomerServiceContact) {
-    setEditingContactId(contact.id);
-    setCsLabel(contact.label || "");
-    setCsPhone(contact.phone || "");
-    setCsEmail(contact.email || "");
-  }
-
-  async function handleSaveContact(salonId: string) {
-    if (!token) return;
-    if (!csPhone.trim() && !csEmail.trim()) {
-      Alert.alert("Missing info", "Enter a phone number or email for this contact.");
-      return;
-    }
-    setSavingCs(true);
-    try {
-      const payload = { label: csLabel.trim(), phone: csPhone.trim(), email: csEmail.trim() };
-      if (editingContactId) {
-        await updateCustomerServiceContact(salonId, editingContactId, payload, token);
-      } else {
-        await addCustomerServiceContact(salonId, payload, token);
-      }
-      await loadData();
-      resetContactForm();
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "Could not save this contact.");
-    } finally {
-      setSavingCs(false);
-    }
-  }
-
-  function handleDeleteContact(salonId: string, contactId: string) {
-    Alert.alert("Remove contact", "Remove this customer service contact?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: async () => {
-          if (!token) return;
-          try {
-            await deleteCustomerServiceContact(salonId, contactId, token);
-            if (editingContactId === contactId) resetContactForm();
-            await loadData();
-          } catch {
-            Alert.alert("Error", "Could not remove this contact.");
-          }
-        },
-      },
-    ]);
   }
 
  const totalBookings = bookings.length;
@@ -2151,99 +2073,6 @@ export default function MySalonScreen() {
                     </Text>
                   </>
                 )}
-              </View>
-            )}
-
-            {/* Customer Service contact (shown to customers on this salon's page) */}
-            <Pressable
-              style={styles.addServiceLink}
-              onPress={() => handleToggleCustomerService(salon)}
-            >
-              <Text style={styles.addServiceLinkText}>
-                {customerServiceSalonId === salon.id ? "▲ Hide Customer Service" : "📞 Customer Service"}
-              </Text>
-            </Pressable>
-
-            {customerServiceSalonId === salon.id && (
-              <View style={styles.serviceForm}>
-                <Text style={styles.promoTargetLabel}>
-                  Contacts customers see on your salon's page
-                </Text>
-
-                {(salon.customerServiceContacts || []).length === 0 ? (
-                  <Text style={styles.noServices}>No contacts added yet.</Text>
-                ) : (
-                  salon.customerServiceContacts.map((contact) => (
-                    <View key={contact.id} style={styles.serviceRow}>
-                      <View style={styles.serviceInfo}>
-                        {contact.label ? (
-                          <Text style={styles.serviceName}>{contact.label}</Text>
-                        ) : null}
-                        {contact.phone ? (
-                          <Text style={styles.serviceMeta}>📞 {contact.phone}</Text>
-                        ) : null}
-                        {contact.email ? (
-                          <Text style={styles.serviceMeta}>✉️ {contact.email}</Text>
-                        ) : null}
-                      </View>
-                      <View style={{ flexDirection: "row", gap: 14 }}>
-                        <Pressable onPress={() => handleStartEditContact(contact)}>
-                          <Text style={styles.editText}>Edit</Text>
-                        </Pressable>
-                        <Pressable onPress={() => handleDeleteContact(salon.id, contact.id)}>
-                          <Text style={styles.deleteText}>Remove</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ))
-                )}
-
-                <Text style={[styles.promoTargetLabel, { marginTop: 14 }]}>
-                  {editingContactId ? "Edit contact" : "Add a contact"}
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Label (e.g. Bookings, Front Desk) — optional"
-                  placeholderTextColor="#A89D8F"
-                  value={csLabel}
-                  onChangeText={setCsLabel}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Phone number"
-                  placeholderTextColor="#A89D8F"
-                  keyboardType="phone-pad"
-                  value={csPhone}
-                  onChangeText={setCsPhone}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Email address"
-                  placeholderTextColor="#A89D8F"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={csEmail}
-                  onChangeText={setCsEmail}
-                />
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  <Pressable
-                    style={[styles.smallButton, { flex: 1 }, savingCs && styles.buttonDisabled]}
-                    onPress={() => handleSaveContact(salon.id)}
-                    disabled={savingCs}
-                  >
-                    <Text style={styles.smallButtonText}>
-                      {savingCs ? "Saving..." : editingContactId ? "Save Changes" : "Add Contact"}
-                    </Text>
-                  </Pressable>
-                  {editingContactId && (
-                    <Pressable style={[styles.smallButton, styles.cancelButton, { flex: 1 }]} onPress={resetContactForm}>
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </Pressable>
-                  )}
-                </View>
-                <Text style={styles.slotHint}>
-                  Add up to 5 contacts. Only you can edit your own salon's contacts.
-                </Text>
               </View>
             )}
 

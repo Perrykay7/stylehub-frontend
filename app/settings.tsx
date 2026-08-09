@@ -9,13 +9,22 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../data/authContext";
 import { useTheme } from "../data/themeContext";
-import { deleteAccount } from "../api/client";
+import { deleteAccount, fetchSalonById, fetchSalons, Salon } from "../api/client";
+import {
+  addCustomerServiceContact,
+  CustomerServiceContact,
+  deleteCustomerServiceContact,
+  fetchOwnerSalons,
+  OwnerSalon,
+  updateCustomerServiceContact,
+} from "../api/ownerClient";
 
 const SUPPORT_PHONE = "0552213828";
 const SUPPORT_EMAIL = "supportstylehub5@gmail.com";
@@ -70,6 +79,23 @@ export default function SettingsScreen() {
   const [showAbout, setShowAbout] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Salon Contacts state (owner: manage their own; everyone else: browse)
+  const [showSalonContacts, setShowSalonContacts] = useState(false);
+  const [ownerSalons, setOwnerSalons] = useState<OwnerSalon[]>([]);
+  const [selectedOwnerSalonId, setSelectedOwnerSalonId] = useState<string | null>(null);
+  const [loadingOwnerSalons, setLoadingOwnerSalons] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [csLabel, setCsLabel] = useState("");
+  const [csPhone, setCsPhone] = useState("");
+  const [csEmail, setCsEmail] = useState("");
+  const [savingCs, setSavingCs] = useState(false);
+
+  const [browseSalons, setBrowseSalons] = useState<Salon[]>([]);
+  const [browseSearch, setBrowseSearch] = useState("");
+  const [loadingBrowseSalons, setLoadingBrowseSalons] = useState(false);
+  const [selectedBrowseSalon, setSelectedBrowseSalon] = useState<Salon | null>(null);
+  const [loadingBrowseContacts, setLoadingBrowseContacts] = useState(false);
+
   function handleLogout() {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
@@ -103,6 +129,114 @@ export default function SettingsScreen() {
       },
       "secure-text"
     );
+  }
+
+  function resetContactForm() {
+    setEditingContactId(null);
+    setCsLabel("");
+    setCsPhone("");
+    setCsEmail("");
+  }
+
+  async function loadOwnerSalons() {
+    if (!token) return;
+    setLoadingOwnerSalons(true);
+    try {
+      const salons = await fetchOwnerSalons(token);
+      setOwnerSalons(salons);
+      setSelectedOwnerSalonId((prev) => prev || (salons.length > 0 ? salons[0].id : null));
+    } catch {
+      Alert.alert("Error", "Could not load your salons.");
+    } finally {
+      setLoadingOwnerSalons(false);
+    }
+  }
+
+  async function loadBrowseSalons() {
+    setLoadingBrowseSalons(true);
+    try {
+      const salons = await fetchSalons();
+      setBrowseSalons(salons);
+    } catch {
+      // ignore — the search list just stays empty
+    } finally {
+      setLoadingBrowseSalons(false);
+    }
+  }
+
+  function handleToggleSalonContacts() {
+    const opening = !showSalonContacts;
+    setShowSalonContacts(opening);
+    if (opening) {
+      if (user?.role === "owner") {
+        if (ownerSalons.length === 0) loadOwnerSalons();
+      } else if (browseSalons.length === 0) {
+        loadBrowseSalons();
+      }
+    }
+  }
+
+  async function handleSelectBrowseSalon(salonId: string) {
+    setLoadingBrowseContacts(true);
+    setSelectedBrowseSalon(null);
+    try {
+      const salon = await fetchSalonById(salonId);
+      setSelectedBrowseSalon(salon);
+    } catch {
+      Alert.alert("Error", "Could not load this salon's contacts.");
+    } finally {
+      setLoadingBrowseContacts(false);
+    }
+  }
+
+  function handleStartEditContact(contact: CustomerServiceContact) {
+    setEditingContactId(contact.id);
+    setCsLabel(contact.label || "");
+    setCsPhone(contact.phone || "");
+    setCsEmail(contact.email || "");
+  }
+
+  async function handleSaveContact() {
+    if (!token || !selectedOwnerSalonId) return;
+    if (!csPhone.trim() && !csEmail.trim()) {
+      Alert.alert("Missing info", "Enter a phone number or email for this contact.");
+      return;
+    }
+    setSavingCs(true);
+    try {
+      const payload = { label: csLabel.trim(), phone: csPhone.trim(), email: csEmail.trim() };
+      if (editingContactId) {
+        await updateCustomerServiceContact(selectedOwnerSalonId, editingContactId, payload, token);
+      } else {
+        await addCustomerServiceContact(selectedOwnerSalonId, payload, token);
+      }
+      resetContactForm();
+      await loadOwnerSalons();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not save this contact.");
+    } finally {
+      setSavingCs(false);
+    }
+  }
+
+  function handleDeleteContact(contactId: string) {
+    Alert.alert("Remove contact", "Remove this customer service contact?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          if (!token || !selectedOwnerSalonId) return;
+          try {
+            await deleteCustomerServiceContact(selectedOwnerSalonId, contactId, token);
+            if (editingContactId === contactId) resetContactForm();
+            await loadOwnerSalons();
+          } catch {
+            Alert.alert("Error", "Could not remove this contact.");
+          }
+        },
+      },
+    ]);
   }
 
   return (
@@ -147,6 +281,199 @@ export default function SettingsScreen() {
               <Pressable onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}>
                 <Text style={styles.supportLink}>✉️ {SUPPORT_EMAIL}</Text>
               </Pressable>
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.sectionBg }]}>
+          <Pressable style={styles.row} onPress={handleToggleSalonContacts}>
+            <Text style={[styles.rowText, { color: colors.text }]}>🏪 Salon Contacts</Text>
+            <Text style={[styles.chevron, { color: colors.muted }]}>{showSalonContacts ? "−" : "+"}</Text>
+          </Pressable>
+          {showSalonContacts && (
+            <View style={styles.expandedContent}>
+              {user?.role === "owner" ? (
+                loadingOwnerSalons ? (
+                  <ActivityIndicator color={colors.clay} />
+                ) : ownerSalons.length === 0 ? (
+                  <Text style={[styles.supportText, { color: colors.muted }]}>
+                    Add a salon first to manage its contacts.
+                  </Text>
+                ) : (
+                  <>
+                    {ownerSalons.length > 1 && (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          {ownerSalons.map((s) => (
+                            <Pressable
+                              key={s.id}
+                              style={[styles.pill, selectedOwnerSalonId === s.id && styles.pillActive]}
+                              onPress={() => {
+                                setSelectedOwnerSalonId(s.id);
+                                resetContactForm();
+                              }}
+                            >
+                              <Text
+                                style={[styles.pillText, selectedOwnerSalonId === s.id && styles.pillTextActive]}
+                              >
+                                {s.name}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </ScrollView>
+                    )}
+
+                    {(() => {
+                      const salon = ownerSalons.find((s) => s.id === selectedOwnerSalonId);
+                      if (!salon) return null;
+                      const contacts = salon.customerServiceContacts || [];
+                      return (
+                        <>
+                          {contacts.length === 0 ? (
+                            <Text style={[styles.supportText, { color: colors.muted }]}>No contacts added yet.</Text>
+                          ) : (
+                            contacts.map((contact) => (
+                              <View key={contact.id} style={[styles.contactRow, { borderBottomColor: colors.border }]}>
+                                <View style={{ flex: 1 }}>
+                                  {contact.label ? (
+                                    <Text style={[styles.contactLabel, { color: colors.text }]}>{contact.label}</Text>
+                                  ) : null}
+                                  {contact.phone ? (
+                                    <Text style={[styles.supportText, { color: colors.muted, marginBottom: 2 }]}>
+                                      📞 {contact.phone}
+                                    </Text>
+                                  ) : null}
+                                  {contact.email ? (
+                                    <Text style={[styles.supportText, { color: colors.muted, marginBottom: 0 }]}>
+                                      ✉️ {contact.email}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                                <View style={{ flexDirection: "row", gap: 14 }}>
+                                  <Pressable onPress={() => handleStartEditContact(contact)}>
+                                    <Text style={[styles.editText, { color: colors.clay }]}>Edit</Text>
+                                  </Pressable>
+                                  <Pressable onPress={() => handleDeleteContact(contact.id)}>
+                                    <Text style={styles.deleteText}>Remove</Text>
+                                  </Pressable>
+                                </View>
+                              </View>
+                            ))
+                          )}
+
+                          <Text style={[styles.contactFormLabel, { color: colors.text }]}>
+                            {editingContactId ? "Edit contact" : "Add a contact"}
+                          </Text>
+                          <TextInput
+                            style={[styles.contactInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                            placeholder="Label (e.g. Bookings, Front Desk) — optional"
+                            placeholderTextColor={colors.muted}
+                            value={csLabel}
+                            onChangeText={setCsLabel}
+                          />
+                          <TextInput
+                            style={[styles.contactInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                            placeholder="Phone number"
+                            placeholderTextColor={colors.muted}
+                            keyboardType="phone-pad"
+                            value={csPhone}
+                            onChangeText={setCsPhone}
+                          />
+                          <TextInput
+                            style={[styles.contactInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                            placeholder="Email address"
+                            placeholderTextColor={colors.muted}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            value={csEmail}
+                            onChangeText={setCsEmail}
+                          />
+                          <View style={{ flexDirection: "row", gap: 8 }}>
+                            <Pressable
+                              style={[styles.smallBtn, savingCs && { opacity: 0.6 }]}
+                              onPress={handleSaveContact}
+                              disabled={savingCs}
+                            >
+                              <Text style={styles.smallBtnText}>
+                                {savingCs ? "Saving..." : editingContactId ? "Save Changes" : "Add Contact"}
+                              </Text>
+                            </Pressable>
+                            {editingContactId && (
+                              <Pressable style={styles.smallBtnCancel} onPress={resetContactForm}>
+                                <Text style={[styles.smallBtnCancelText, { color: colors.muted }]}>Cancel</Text>
+                              </Pressable>
+                            )}
+                          </View>
+                          <Text style={[styles.supportText, { color: colors.muted, marginTop: 8, marginBottom: 0 }]}>
+                            Add up to 5 contacts. Only you can edit your own salon's contacts.
+                          </Text>
+                        </>
+                      );
+                    })()}
+                  </>
+                )
+              ) : (
+                <>
+                  <TextInput
+                    style={[styles.contactInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                    placeholder="Search salons..."
+                    placeholderTextColor={colors.muted}
+                    value={browseSearch}
+                    onChangeText={setBrowseSearch}
+                  />
+                  {loadingBrowseSalons ? (
+                    <ActivityIndicator color={colors.clay} />
+                  ) : (
+                    browseSalons
+                      .filter((s) => s.name.toLowerCase().includes(browseSearch.trim().toLowerCase()))
+                      .slice(0, 20)
+                      .map((s) => (
+                        <View key={s.id}>
+                          <Pressable
+                            style={styles.browseSalonRow}
+                            onPress={() => {
+                              if (selectedBrowseSalon?.id === s.id) {
+                                setSelectedBrowseSalon(null);
+                              } else {
+                                handleSelectBrowseSalon(s.id);
+                              }
+                            }}
+                          >
+                            <Text style={[styles.supportText, { color: colors.text, marginBottom: 0 }]}>{s.name}</Text>
+                            <Text style={[styles.chevron, { color: colors.muted }]}>
+                              {selectedBrowseSalon?.id === s.id ? "−" : "+"}
+                            </Text>
+                          </Pressable>
+                          {selectedBrowseSalon?.id === s.id &&
+                            (loadingBrowseContacts ? (
+                              <ActivityIndicator color={colors.clay} />
+                            ) : (selectedBrowseSalon.customerServiceContacts || []).length === 0 ? (
+                              <Text style={[styles.supportText, { color: colors.muted }]}>No contacts listed.</Text>
+                            ) : (
+                              selectedBrowseSalon.customerServiceContacts.map((contact) => (
+                                <View key={contact.id} style={{ marginBottom: 8, marginLeft: 8 }}>
+                                  {contact.label ? (
+                                    <Text style={[styles.contactLabel, { color: colors.text }]}>{contact.label}</Text>
+                                  ) : null}
+                                  {contact.phone && (
+                                    <Pressable onPress={() => Linking.openURL(`tel:${contact.phone}`)}>
+                                      <Text style={styles.supportLink}>📞 {contact.phone}</Text>
+                                    </Pressable>
+                                  )}
+                                  {contact.email && (
+                                    <Pressable onPress={() => Linking.openURL(`mailto:${contact.email}`)}>
+                                      <Text style={styles.supportLink}>✉️ {contact.email}</Text>
+                                    </Pressable>
+                                  )}
+                                </View>
+                              ))
+                            ))}
+                        </View>
+                      ))
+                  )}
+                </>
+              )}
             </View>
           )}
         </View>
@@ -274,5 +601,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
     lineHeight: 19,
+  },
+  pill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F0E9E1",
+  },
+  pillActive: { backgroundColor: CLAY },
+  pillText: { fontFamily: "Manrope_600SemiBold", fontSize: 13, color: MUTED },
+  pillTextActive: { color: "#fff" },
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  contactLabel: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  editText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 13,
+  },
+  contactFormLabel: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  contactInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontFamily: "Manrope_500Medium",
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  smallBtn: {
+    flex: 1,
+    backgroundColor: CLAY,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  smallBtnText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 14,
+    color: "#fff",
+  },
+  smallBtnCancel: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  smallBtnCancelText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 14,
+  },
+  browseSalonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
   },
 });

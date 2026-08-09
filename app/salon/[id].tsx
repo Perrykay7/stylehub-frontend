@@ -5,7 +5,6 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
-    Linking,
     Modal,
     Platform,
     Pressable,
@@ -178,32 +177,6 @@ export default function SalonDetailScreen() {
             ));
           })()}
         </View>
-
-        {salon.customerServiceContacts && salon.customerServiceContacts.length > 0 && (
-          <View style={[styles.section, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Customer Service</Text>
-            <Text style={[styles.sectionHint, { color: colors.muted }]}>
-              Need help? Reach out to us directly:
-            </Text>
-            {salon.customerServiceContacts.map((contact) => (
-              <View key={contact.id} style={styles.contactGroup}>
-                {contact.label && (
-                  <Text style={[styles.contactLabel, { color: colors.text }]}>{contact.label}</Text>
-                )}
-                {contact.phone && (
-                  <Pressable onPress={() => Linking.openURL(`tel:${contact.phone}`)}>
-                    <Text style={styles.supportLink}>📞 {contact.phone}</Text>
-                  </Pressable>
-                )}
-                {contact.email && (
-                  <Pressable onPress={() => Linking.openURL(`mailto:${contact.email}`)}>
-                    <Text style={styles.supportLink}>✉️ {contact.email}</Text>
-                  </Pressable>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
 
         <View style={[styles.section, styles.lastSection, { backgroundColor: colors.card }]}>
           <View style={styles.reviewsHeader}>
@@ -393,20 +366,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: MUTED,
     marginBottom: 10,
-  },
-  supportLink: {
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 14,
-    color: CLAY,
-    marginBottom: 8,
-  },
-  contactGroup: {
-    marginBottom: 6,
-  },
-  contactLabel: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 13,
-    marginBottom: 2,
   },
   serviceItemWrapper: {
     backgroundColor: PAPER,
