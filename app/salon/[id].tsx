@@ -179,22 +179,29 @@ export default function SalonDetailScreen() {
           })()}
         </View>
 
-        {(salon.customerServicePhone || salon.customerServiceEmail) && (
+        {salon.customerServiceContacts && salon.customerServiceContacts.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Customer Service</Text>
             <Text style={[styles.sectionHint, { color: colors.muted }]}>
               Need help? Reach out to us directly:
             </Text>
-            {salon.customerServicePhone && (
-              <Pressable onPress={() => Linking.openURL(`tel:${salon.customerServicePhone}`)}>
-                <Text style={styles.supportLink}>📞 {salon.customerServicePhone}</Text>
-              </Pressable>
-            )}
-            {salon.customerServiceEmail && (
-              <Pressable onPress={() => Linking.openURL(`mailto:${salon.customerServiceEmail}`)}>
-                <Text style={styles.supportLink}>✉️ {salon.customerServiceEmail}</Text>
-              </Pressable>
-            )}
+            {salon.customerServiceContacts.map((contact) => (
+              <View key={contact.id} style={styles.contactGroup}>
+                {contact.label && (
+                  <Text style={[styles.contactLabel, { color: colors.text }]}>{contact.label}</Text>
+                )}
+                {contact.phone && (
+                  <Pressable onPress={() => Linking.openURL(`tel:${contact.phone}`)}>
+                    <Text style={styles.supportLink}>📞 {contact.phone}</Text>
+                  </Pressable>
+                )}
+                {contact.email && (
+                  <Pressable onPress={() => Linking.openURL(`mailto:${contact.email}`)}>
+                    <Text style={styles.supportLink}>✉️ {contact.email}</Text>
+                  </Pressable>
+                )}
+              </View>
+            ))}
           </View>
         )}
 
@@ -392,6 +399,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: CLAY,
     marginBottom: 8,
+  },
+  contactGroup: {
+    marginBottom: 6,
+  },
+  contactLabel: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 13,
+    marginBottom: 2,
   },
   serviceItemWrapper: {
     backgroundColor: PAPER,

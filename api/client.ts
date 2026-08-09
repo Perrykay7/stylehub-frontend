@@ -21,6 +21,13 @@ export type Review = {
   date: string;
 };
 
+export type CustomerServiceContact = {
+  id: string;
+  label: string | null;
+  phone: string | null;
+  email: string | null;
+};
+
 export type Salon = {
   id: string;
   name: string;
@@ -32,8 +39,7 @@ export type Salon = {
   imageUrl: string;
   openTime: string;
   closeTime: string;
-  customerServicePhone: string | null;
-  customerServiceEmail: string | null;
+  customerServiceContacts: CustomerServiceContact[];
   services: Service[];
   reviews: Review[];
 };

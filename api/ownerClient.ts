@@ -1,6 +1,13 @@
 const BASE_URL = "https://stylehub-backend-42fh.onrender.com";
 export const WS_BASE_URL = BASE_URL.replace(/^http/, "ws");
 
+export type CustomerServiceContact = {
+  id: string;
+  label: string | null;
+  phone: string | null;
+  email: string | null;
+};
+
 export type OwnerSalon = {
   id: string;
   ownerId: string;
@@ -10,8 +17,7 @@ export type OwnerSalon = {
   imageUrl: string;
   openTime: string;
   closeTime: string;
-  customerServicePhone: string | null;
-  customerServiceEmail: string | null;
+  customerServiceContacts: CustomerServiceContact[];
   services: {
     id: string;
     name: string;
@@ -563,19 +569,59 @@ export async function updateOwnerSalon(
   return response.json();
 }
 
+export async function fetchCustomerServiceContacts(
+  salonId: string,
+  token: string
+): Promise<CustomerServiceContact[]> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/customer-service`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch customer service contacts");
+  return response.json();
+}
+
+export async function addCustomerServiceContact(
+  salonId: string,
+  payload: { label?: string; phone?: string; email?: string },
+  token: string
+): Promise<CustomerServiceContact> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/customer-service`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to add contact");
+  return data;
+}
+
 export async function updateCustomerServiceContact(
   salonId: string,
-  payload: { customerServicePhone: string; customerServiceEmail: string },
+  contactId: string,
+  payload: { label?: string; phone?: string; email?: string },
   token: string
-): Promise<{ customerServicePhone: string | null; customerServiceEmail: string | null }> {
-  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/customer-service`, {
+): Promise<CustomerServiceContact> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/customer-service/${contactId}`, {
     method: "PUT",
     headers: authHeaders(token),
     body: JSON.stringify(payload),
   });
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.error || "Failed to update customer service contact");
+  if (!response.ok) throw new Error(data?.error || "Failed to update contact");
   return data;
+}
+
+export async function deleteCustomerServiceContact(
+  salonId: string,
+  contactId: string,
+  token: string
+) {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/customer-service/${contactId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to delete contact");
+  return response.json();
 }
 
 export async function deleteOwnerSalon(salonId: string, token: string) {
