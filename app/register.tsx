@@ -21,11 +21,13 @@ export default function RegisterScreen() {
   const { colors } = useTheme();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [role, setRole] = useState<"customer" | "owner">("customer");
+  const [role, setRole] = useState<"customer" | "owner" | "professional">("customer");
   const [inviteCode, setInviteCode] = useState("");
+  const [claimCode, setClaimCode] = useState("");
  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -47,11 +49,27 @@ export default function RegisterScreen() {
       setError("Please enter the salon owner invite code.");
       return;
     }
+    if (role === "professional" && !inviteCode) {
+      setError("Please enter the professional referral code.");
+      return;
+    }
+    if (role === "professional" && !claimCode) {
+      setError("Please enter the claim code your salon owner gave you.");
+      return;
+    }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Please enter a valid email address, or leave it blank.");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
-     await register(name, phone, password, role, inviteCode);
-      router.replace("/(tabs)" as any);
+      await register(name, phone, password, role, inviteCode, claimCode, email.trim());
+      if (role === "professional") {
+        router.replace("/professional-dashboard" as any);
+      } else {
+        router.replace("/(tabs)" as any);
+      }
     } catch (err: any) {
       setError(err.message || "Registration failed.");
     } finally {
@@ -97,6 +115,14 @@ export default function RegisterScreen() {
               Salon Owner
             </Text>
           </Pressable>
+          <Pressable
+            style={[styles.roleOption, { backgroundColor: colors.card, borderColor: colors.border }, role === "professional" && styles.roleOptionSelected]}
+            onPress={() => setRole("professional")}
+          >
+            <Text style={[styles.roleText, { color: colors.text }, role === "professional" && styles.roleTextSelected]}>
+              Professional
+            </Text>
+          </Pressable>
         </View>
 
         <TextInput
@@ -113,6 +139,15 @@ export default function RegisterScreen() {
           keyboardType="phone-pad"
           value={phone}
           onChangeText={setPhone}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+          placeholder="Email (optional)"
+          placeholderTextColor="#A89D8F"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
         />
         <View style={styles.passwordWrapper}>
@@ -153,6 +188,27 @@ export default function RegisterScreen() {
             onChangeText={setInviteCode}
             autoCapitalize="none"
           />
+        )}
+
+        {role === "professional" && (
+          <>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+              placeholder="Professional referral code"
+              placeholderTextColor="#A89D8F"
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+              placeholder="Claim code from your salon owner"
+              placeholderTextColor="#A89D8F"
+              value={claimCode}
+              onChangeText={setClaimCode}
+              autoCapitalize="none"
+            />
+          </>
         )}
 
         <Pressable

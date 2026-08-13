@@ -1,5 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { savePushToken } from "../api/client";
+import { registerForPushNotificationsAsync } from "./pushNotifications";
 
 const BASE_URL = "https://stylehub-backend-42fh.onrender.com";
 const TOKEN_KEY = "stylehub_token";
@@ -9,7 +11,8 @@ export type AuthUser = {
   id: string;
   name: string;
   phone: string;
-  role: "customer" | "owner";
+  email: string | null;
+  role: "customer" | "owner" | "professional";
 };
 
 type AuthContextType = {
@@ -20,12 +23,15 @@ type AuthContextType = {
     name: string,
     phone: string,
     password: string,
-    role: "customer" | "owner",
-    inviteCode?: string
+    role: "customer" | "owner" | "professional",
+    inviteCode?: string,
+    claimCode?: string,
+    email?: string
   ) => Promise<void>;
   login: (phone: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  reverifyOwner: (inviteCode: string) => Promise<void>;
+  reverify: (role: "owner" | "professional", inviteCode: string) => Promise<void>;
+  updateProfile: (payload: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadStoredAuth();
   }, []);
 
+  useEffect(() => {
+    if (!token) return;
+    registerForPushNotificationsAsync()
+      .then((pushToken) => {
+        if (!pushToken) return;
+        return savePushToken(pushToken, token);
+      })
+      .catch(() => {});
+  }, [token]);
+
   async function persistAuth(newToken: string, newUser: AuthUser) {
     await SecureStore.setItemAsync(TOKEN_KEY, newToken);
     await SecureStore.setItemAsync(USER_KEY, JSON.stringify(newUser));
@@ -59,13 +75,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
     phone: string,
     password: string,
-    role: "customer" | "owner",
-    inviteCode?: string
+    role: "customer" | "owner" | "professional",
+    inviteCode?: string,
+    claimCode?: string,
+    email?: string
   ) {
     const response = await fetch(`${BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone, password, role, inviteCode }),
+      body: JSON.stringify({ name, phone, password, role, inviteCode, claimCode, email }),
     });
     const data = await response.json();
     if (!response.ok) {
@@ -87,19 +105,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await persistAuth(data.token, data.user);
   }
 
-  async function reverifyOwner(inviteCode: string) {
-    const response = await fetch(`${BASE_URL}/auth/reverify-owner`, {
+  async function reverify(role: "owner" | "professional", inviteCode: string) {
+    const response = await fetch(`${BASE_URL}/auth/reverify`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ inviteCode }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ role, inviteCode }),
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || "Invalid invite code");
+      throw new Error(data.error || "Invalid code");
     }
+    await persistAuth(data.token, data.user);
+  }
+
+  async function updateProfile(payload: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) {
+    const response = await fetch(`${BASE_URL}/auth/profile`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Could not update profile");
     await persistAuth(data.token, data.user);
   }
 
@@ -112,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, register, login, logout, reverifyOwner }}
+      value={{ user, token, loading, register, login, logout, reverify, updateProfile }}
     >
       {children}
     </AuthContext.Provider>
