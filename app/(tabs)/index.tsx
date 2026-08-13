@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,31 @@ const REC_CARD_WIDTH = 260;
 const REC_IMAGE_HEIGHT = 160;
 const REC_CARD_HEIGHT = 240;
 const REC_ROW_GAP = 16;
+
+type SortOption = "recommended" | "rating" | "distance" | "priceLow" | "priceHigh";
+type PriceRange = "any" | "under50" | "50to100" | "over100";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "recommended", label: "Recommended" },
+  { value: "rating", label: "Highest Rated" },
+  { value: "distance", label: "Nearest" },
+  { value: "priceLow", label: "Price: Low to High" },
+  { value: "priceHigh", label: "Price: High to Low" },
+];
+
+const RATING_OPTIONS = [0, 3.5, 4, 4.5];
+
+const PRICE_OPTIONS: { value: PriceRange; label: string }[] = [
+  { value: "any", label: "Any price" },
+  { value: "under50", label: "Under GHS 50" },
+  { value: "50to100", label: "GHS 50–100" },
+  { value: "over100", label: "Over GHS 100" },
+];
+
+function getSalonMinPrice(salon: Salon): number | null {
+  if (!salon.services || salon.services.length === 0) return null;
+  return Math.min(...salon.services.map((s) => s.price));
+}
 
 function HeartButton({
   favorited,
@@ -194,6 +220,10 @@ export default function BrowseScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("recommended");
+  const [minRating, setMinRating] = useState(0);
+  const [priceRange, setPriceRange] = useState<PriceRange>("any");
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchSalons()
@@ -249,18 +279,49 @@ export default function BrowseScreen() {
   }, [salons]);
 
   const filteredSalons = useMemo(() => {
-    return salons.filter((salon) => {
+    const filtered = salons.filter((salon) => {
       const matchesQuery =
         query.trim().length === 0 ||
         salon.name.toLowerCase().includes(query.trim().toLowerCase()) ||
         salon.category.toLowerCase().includes(query.trim().toLowerCase());
       const matchesCategory =
         !activeCategory || salon.category === activeCategory;
-      return matchesQuery && matchesCategory;
+      const matchesRating = minRating === 0 || salon.rating >= minRating;
+      const minPrice = getSalonMinPrice(salon);
+      const matchesPrice =
+        priceRange === "any" ||
+        (minPrice !== null &&
+          (priceRange === "under50"
+            ? minPrice < 50
+            : priceRange === "50to100"
+              ? minPrice >= 50 && minPrice <= 100
+              : minPrice > 100));
+      return matchesQuery && matchesCategory && matchesRating && matchesPrice;
     });
-  }, [salons, query, activeCategory]);
 
-  const isBrowsing = query.trim().length === 0 && !activeCategory;
+    if (sortBy === "recommended") return filtered;
+
+    return [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case "rating":
+          return b.rating - a.rating;
+        case "distance":
+          return a.distanceKm - b.distanceKm;
+        case "priceLow":
+          return (getSalonMinPrice(a) ?? Infinity) - (getSalonMinPrice(b) ?? Infinity);
+        case "priceHigh":
+          return (getSalonMinPrice(b) ?? -Infinity) - (getSalonMinPrice(a) ?? -Infinity);
+        default:
+          return 0;
+      }
+    });
+  }, [salons, query, activeCategory, minRating, priceRange, sortBy]);
+
+  const activeFilterCount =
+    (minRating > 0 ? 1 : 0) + (priceRange !== "any" ? 1 : 0) + (sortBy !== "recommended" ? 1 : 0);
+
+  const isBrowsing =
+    query.trim().length === 0 && !activeCategory && activeFilterCount === 0;
 
   const bookAgainItems = useMemo<BookAgainItem[]>(() => {
     const seen = new Set<string>();
@@ -309,16 +370,31 @@ export default function BrowseScreen() {
           )}
         </View>
       </View>
-      <TextInput
-        ref={searchInputRef}
-        style={[styles.searchInput, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-        placeholder="Search by name or category"
-        placeholderTextColor="#A89D8F"
-        value={query}
-        onChangeText={setQuery}
-        autoCorrect={false}
-        clearButtonMode="while-editing"
-      />
+      <View style={styles.searchRow}>
+        <TextInput
+          ref={searchInputRef}
+          style={[styles.searchInput, styles.searchInputFlex, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+          placeholder="Search by name or category"
+          placeholderTextColor="#A89D8F"
+          value={query}
+          onChangeText={setQuery}
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+        <Pressable
+          style={[styles.filterButton, { backgroundColor: colors.card, borderColor: colors.border }, activeFilterCount > 0 && styles.filterButtonActive]}
+          onPress={() => setShowFilters(true)}
+        >
+          <Text style={[styles.filterButtonText, { color: colors.text }, activeFilterCount > 0 && styles.filterButtonTextActive]}>
+            ⚙
+          </Text>
+          {activeFilterCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </Pressable>
+      </View>
 
       {categories.length > 0 && (
         <ScrollView
@@ -428,6 +504,87 @@ export default function BrowseScreen() {
           }
         />
       )}
+
+      <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
+        <Pressable style={styles.filtersOverlay} onPress={() => setShowFilters(false)}>
+          <Pressable style={[styles.filtersSheet, { backgroundColor: colors.background }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.filtersHeader}>
+              <Text style={[styles.filtersTitle, { color: colors.text }]}>Filters</Text>
+              <Pressable
+                onPress={() => {
+                  setSortBy("recommended");
+                  setMinRating(0);
+                  setPriceRange("any");
+                }}
+              >
+                <Text style={[styles.filtersClear, { color: colors.clay }]}>Clear</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={[styles.filterLabel, { color: colors.text }]}>Sort by</Text>
+              <View style={styles.filterOptionsWrap}>
+                {SORT_OPTIONS.map((opt) => {
+                  const isSelected = sortBy === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      style={[styles.filterChip, { backgroundColor: colors.card, borderColor: colors.border }, isSelected && styles.filterChipSelected]}
+                      onPress={() => setSortBy(opt.value)}
+                    >
+                      <Text style={[styles.filterChipText, { color: colors.text }, isSelected && styles.filterChipTextSelected]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.filterLabel, { color: colors.text }]}>Minimum rating</Text>
+              <View style={styles.filterOptionsWrap}>
+                {RATING_OPTIONS.map((value) => {
+                  const isSelected = minRating === value;
+                  return (
+                    <Pressable
+                      key={value}
+                      style={[styles.filterChip, { backgroundColor: colors.card, borderColor: colors.border }, isSelected && styles.filterChipSelected]}
+                      onPress={() => setMinRating(value)}
+                    >
+                      <Text style={[styles.filterChipText, { color: colors.text }, isSelected && styles.filterChipTextSelected]}>
+                        {value === 0 ? "Any" : `★ ${value}+`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.filterLabel, { color: colors.text }]}>Price range</Text>
+              <View style={styles.filterOptionsWrap}>
+                {PRICE_OPTIONS.map((opt) => {
+                  const isSelected = priceRange === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      style={[styles.filterChip, { backgroundColor: colors.card, borderColor: colors.border }, isSelected && styles.filterChipSelected]}
+                      onPress={() => setPriceRange(opt.value)}
+                    >
+                      <Text style={[styles.filterChipText, { color: colors.text }, isSelected && styles.filterChipTextSelected]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            <Pressable style={styles.filtersApplyButton} onPress={() => setShowFilters(false)}>
+              <Text style={styles.filtersApplyButtonText}>
+                Show {filteredSalons.length} {filteredSalons.length === 1 ? "salon" : "salons"}
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
     </LinearGradient>
   );
@@ -486,18 +643,63 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: RUST,
   },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
   searchInput: {
     fontFamily: "Manrope_500Medium",
-    marginHorizontal: 20,
     backgroundColor: "#fff",
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
-    marginBottom: 12,
     color: INK,
     borderWidth: 1,
     borderColor: "#EFE6D9",
+  },
+  searchInputFlex: {
+    flex: 1,
+  },
+  filterButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    backgroundColor: "#fff",
+    borderColor: "#EFE6D9",
+  },
+  filterButtonActive: {
+    backgroundColor: CLAY,
+    borderColor: CLAY,
+  },
+  filterButtonText: {
+    fontSize: 18,
+  },
+  filterButtonTextActive: {
+    color: "#fff",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: RUST,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 10,
+    color: "#fff",
   },
   chipsList: {
     flexGrow: 0,
@@ -769,5 +971,71 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: MUTED,
     marginTop: 6,
+  },
+  filtersOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  filtersSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 32,
+    maxHeight: "80%",
+  },
+  filtersHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  filtersTitle: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 22,
+  },
+  filtersClear: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 14,
+  },
+  filterLabel: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 14,
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  filterOptionsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipSelected: {
+    backgroundColor: CLAY,
+    borderColor: CLAY,
+  },
+  filterChipText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+  },
+  filterChipTextSelected: {
+    color: "#fff",
+  },
+  filtersApplyButton: {
+    backgroundColor: CLAY,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  filtersApplyButtonText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 15,
+    color: "#fff",
   },
 });
