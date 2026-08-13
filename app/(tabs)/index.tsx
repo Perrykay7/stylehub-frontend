@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
@@ -385,9 +386,11 @@ export default function BrowseScreen() {
           style={[styles.filterButton, { backgroundColor: colors.card, borderColor: colors.border }, activeFilterCount > 0 && styles.filterButtonActive]}
           onPress={() => setShowFilters(true)}
         >
-          <Text style={[styles.filterButtonText, { color: colors.text }, activeFilterCount > 0 && styles.filterButtonTextActive]}>
-            ⚙
-          </Text>
+          <Ionicons
+            name="filter-outline"
+            size={20}
+            color={activeFilterCount > 0 ? "#fff" : colors.text}
+          />
           {activeFilterCount > 0 && (
             <View style={styles.filterBadge}>
               <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -677,12 +680,6 @@ const styles = StyleSheet.create({
   filterButtonActive: {
     backgroundColor: CLAY,
     borderColor: CLAY,
-  },
-  filterButtonText: {
-    fontSize: 18,
-  },
-  filterButtonTextActive: {
-    color: "#fff",
   },
   filterBadge: {
     position: "absolute",
