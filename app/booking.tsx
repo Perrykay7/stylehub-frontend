@@ -22,6 +22,7 @@ import {
     joinWaitlist,
     MyPromo,
     Professional,
+    rescheduleBooking,
     Salon,
 } from "../api/client";
 
@@ -61,11 +62,14 @@ function generateTimeSlots(openTime: string, closeTime: string) {
 }
 
 export default function BookingScreen() {
-  const { salonId, serviceId } = useLocalSearchParams<{
+  const { salonId, serviceId, rescheduleId, professionalId } = useLocalSearchParams<{
     salonId: string;
     serviceId: string;
+    rescheduleId?: string;
+    professionalId?: string;
   }>();
   const { token } = useAuth();
+  const isRescheduling = !!rescheduleId;
 
   const [salon, setSalon] = useState<Salon | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +86,7 @@ export default function BookingScreen() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<
     string | "no_preference"
-  >("no_preference");
+  >(professionalId || "no_preference");
 
  useEffect(() => {
     fetchSalonById(salonId)
@@ -156,6 +160,29 @@ export default function BookingScreen() {
 
     setSubmitting(true);
     try {
+      if (rescheduleId) {
+        await rescheduleBooking(
+          rescheduleId,
+          {
+            date: isoDate,
+            dateLabel,
+            time: selectedTime,
+            professionalId:
+              selectedProfessionalId === "no_preference"
+                ? undefined
+                : selectedProfessionalId,
+          },
+          token
+        );
+
+        Alert.alert(
+          "Booking Rescheduled",
+          `Your ${service.name} appointment is now on ${dateLabel} at ${selectedTime}.`
+        );
+        router.replace("/(tabs)/my-bookings" as any);
+        return;
+      }
+
       await createBooking(
         {
           salonId: salon.id,
@@ -179,17 +206,25 @@ export default function BookingScreen() {
         pathname: "/booking-confirmation",
         params: {
           salonName: salon.name,
+          salonAddress: salon.address,
           serviceName: service.name,
+          date: isoDate,
           dateLabel,
           time: selectedTime,
+          durationMins: String(service.durationMins),
           price: String(discountedPrice),
         },
       } as any);
     } catch (err: any) {
       const message =
         err?.message?.includes("just booked") ||
-        err?.message?.includes("409")
-          ? "That time slot was just booked by someone else. Please pick another."
+        err?.message?.includes("409") ||
+        err?.message?.includes("already booked") ||
+        err?.message?.includes("fully booked") ||
+        err?.message?.includes("not available")
+          ? err.message
+          : isRescheduling
+          ? err?.message || "Could not reschedule this booking. Please try again."
           : "Could not reach the server. Make sure the backend is running.";
 
       // Refresh booked slots so the picker reflects reality
@@ -203,7 +238,7 @@ export default function BookingScreen() {
         .catch(() => {});
       setSelectedTime(null);
 
-      Alert.alert("Booking Failed", message);
+      Alert.alert(isRescheduling ? "Reschedule Failed" : "Booking Failed", message);
     } finally {
       setSubmitting(false);
     }
@@ -249,7 +284,7 @@ export default function BookingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: "Book Appointment" }} />
+      <Stack.Screen options={{ title: isRescheduling ? "Reschedule Appointment" : "Book Appointment" }} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.summaryCard}>
           <Text style={styles.salonName}>{salon.name}</Text>
@@ -268,6 +303,12 @@ export default function BookingScreen() {
             )}
           </View>
         </View>
+
+        {isRescheduling && (
+          <Text style={styles.rescheduleNotice}>
+            Pick a new date and time below. Your price stays the same.
+          </Text>
+        )}
 
         {appliedPromo && (
           <Text style={styles.promoSuccess}>
@@ -466,7 +507,13 @@ export default function BookingScreen() {
           disabled={submitting}
         >
           <Text style={styles.confirmButtonText}>
-            {submitting ? "Booking..." : "Confirm Booking"}
+            {submitting
+              ? isRescheduling
+                ? "Rescheduling..."
+                : "Booking..."
+              : isRescheduling
+              ? "Confirm New Time"
+              : "Confirm Booking"}
           </Text>
         </Pressable>
       </View>
@@ -545,6 +592,12 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_600SemiBold",
     fontSize: 13,
     color: "#3D8B5F",
+    marginBottom: 16,
+  },
+  rescheduleNotice: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 13,
+    color: MUTED,
     marginBottom: 16,
   },
   proCard: {

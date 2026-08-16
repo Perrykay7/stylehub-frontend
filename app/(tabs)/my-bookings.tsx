@@ -1,5 +1,6 @@
+import { useFocusEffect } from "@react-navigation/native";
 import { router, Stack } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -57,6 +58,18 @@ function BookingItem({
     });
   }
 
+  function handleReschedule() {
+    router.push({
+      pathname: "/booking",
+      params: {
+        salonId: booking.salonId,
+        serviceId: booking.serviceId,
+        rescheduleId: booking.id,
+        professionalId: booking.professionalId || undefined,
+      },
+    } as any);
+  }
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
       <Text style={[styles.salonName, { color: colors.muted }]}>{booking.salonName}</Text>
@@ -77,15 +90,23 @@ function BookingItem({
 
       {isUpcoming &&
         (canCancel ? (
-          <Pressable
-            style={styles.cancelButton}
-            onPress={() => onCancel(booking.id)}
-          >
-            <Text style={styles.cancelButtonText}>Cancel Booking</Text>
-          </Pressable>
+          <View style={styles.actionRow}>
+            <Pressable
+              style={styles.rescheduleButton}
+              onPress={handleReschedule}
+            >
+              <Text style={styles.rescheduleButtonText}>Reschedule</Text>
+            </Pressable>
+            <Pressable
+              style={styles.cancelButton}
+              onPress={() => onCancel(booking.id)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
         ) : (
           <Text style={styles.cancelDisabledText}>
-            Cancellations must be made at least 2 hours before your appointment.
+            Cancellations and reschedules must be made at least 2 hours before your appointment.
           </Text>
         ))}
 
@@ -124,7 +145,7 @@ function WaitlistItem({
       <Text style={[styles.meta, { color: colors.muted, marginTop: 6 }]}>
         {entry.notified ? "🎉 This slot opened up — go book it!" : "We'll notify you if this slot opens up."}
       </Text>
-      <Pressable style={styles.cancelButton} onPress={() => onLeave(entry.id)}>
+      <Pressable style={[styles.cancelButton, { marginTop: 14 }]} onPress={() => onLeave(entry.id)}>
         <Text style={styles.cancelButtonText}>Leave Waitlist</Text>
       </Pressable>
     </View>
@@ -161,6 +182,13 @@ export default function MyBookingsScreen() {
   useEffect(() => {
     loadBookings();
   }, [token]);
+
+  // Refresh whenever this screen regains focus (e.g. returning from a reschedule).
+  useFocusEffect(
+    useCallback(() => {
+      loadBookings();
+    }, [token])
+  );
 
   function handleLeaveWaitlist(id: string) {
     if (!token) return;
@@ -432,8 +460,26 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 13,
   },
-  cancelButton: {
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
     marginTop: 14,
+  },
+  rescheduleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: CLAY,
+  },
+  rescheduleButtonText: {
+    fontFamily: "Manrope_700Bold",
+    color: CLAY,
+    fontSize: 13,
+  },
+  cancelButton: {
+    flex: 1,
     paddingVertical: 10,
     alignItems: "center",
     borderRadius: 12,

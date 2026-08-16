@@ -342,6 +342,23 @@ export async function cancelBooking(bookingId: string, token: string) {
   return response.json();
 }
 
+export async function rescheduleBooking(
+  bookingId: string,
+  payload: { date: string; dateLabel: string; time: string; professionalId?: string },
+  token: string
+): Promise<Booking> {
+  const response = await fetch(`${BASE_URL}/bookings/${bookingId}/reschedule`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not reschedule booking");
+  }
+  return data;
+}
+
 export async function forgotPassword(phone: string) {
   const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
     method: "POST",

@@ -1,19 +1,131 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import * as StoreReview from "expo-store-review";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../data/themeContext";
 
+const BOOKING_COUNT_KEY = "stylehub_booking_count";
+
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function formatIcsLocal(d: Date) {
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+function formatIcsUtc(d: Date) {
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(
+    d.getUTCHours()
+  )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+}
+
+function escapeIcsText(text: string) {
+  return text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+
+function buildIcsContent(event: {
+  uid: string;
+  start: Date;
+  end: Date;
+  summary: string;
+  location: string;
+  description: string;
+}) {
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//StyleHub//Booking//EN",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${event.uid}`,
+    `DTSTAMP:${formatIcsUtc(new Date())}`,
+    `DTSTART:${formatIcsLocal(event.start)}`,
+    `DTEND:${formatIcsLocal(event.end)}`,
+    `SUMMARY:${escapeIcsText(event.summary)}`,
+    `LOCATION:${escapeIcsText(event.location)}`,
+    `DESCRIPTION:${escapeIcsText(event.description)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  return lines.join("\r\n");
+}
+
 export default function BookingConfirmationScreen() {
   const { colors } = useTheme();
-  const { salonName, serviceName, dateLabel, time, price } =
+  const [addingToCalendar, setAddingToCalendar] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const raw = await SecureStore.getItemAsync(BOOKING_COUNT_KEY);
+      const count = parseInt(raw || "0", 10) + 1;
+      await SecureStore.setItemAsync(BOOKING_COUNT_KEY, String(count));
+      // Ask for a rating after the 3rd booking and every 10 after that
+      if (count === 3 || (count > 3 && (count - 3) % 10 === 0)) {
+        const isAvailable = await StoreReview.isAvailableAsync();
+        if (isAvailable) {
+          await StoreReview.requestReview();
+        }
+      }
+    })();
+  }, []);
+  const { salonName, salonAddress, serviceName, date, dateLabel, time, durationMins, price } =
     useLocalSearchParams<{
       salonName: string;
+      salonAddress: string;
       serviceName: string;
+      date: string;
       dateLabel: string;
       time: string;
+      durationMins: string;
       price: string;
     }>();
+
+  async function handleAddToCalendar() {
+    if (!date || !time) return;
+    setAddingToCalendar(true);
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert("Not available", "Sharing isn't available on this device.");
+        return;
+      }
+
+      const start = new Date(`${date}T${time}:00`);
+      const minutes = parseInt(durationMins || "30", 10) || 30;
+      const end = new Date(start.getTime() + minutes * 60000);
+
+      const icsContent = buildIcsContent({
+        uid: `${Date.now()}-stylehub@stylehub.app`,
+        start,
+        end,
+        summary: `${serviceName || "Appointment"} at ${salonName || "StyleHub"}`,
+        location: salonAddress || salonName || "",
+        description: `Booked via StyleHub. ${serviceName || ""} at ${salonName || ""}.`,
+      });
+
+      const file = new File(Paths.cache, `stylehub-${Date.now()}.ics`);
+      file.create();
+      file.write(icsContent);
+
+      await Sharing.shareAsync(file.uri, {
+        mimeType: "text/calendar",
+        dialogTitle: "Add to Calendar",
+        UTI: "com.apple.ical.ics",
+      });
+    } catch (err) {
+      Alert.alert("Couldn't add to calendar", "Please try again.");
+    } finally {
+      setAddingToCalendar(false);
+    }
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -23,9 +135,10 @@ export default function BookingConfirmationScreen() {
           <Ionicons name="checkmark-circle" size={72} color="#C1683C" />
         </View>
 
-        <Text style={[styles.title, { color: colors.text }]}>Booking Confirmed!</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Thank You!</Text>
         <Text style={[styles.subtitle, { color: colors.muted }]}>
-          Your appointment has been booked successfully.
+          We truly appreciate you choosing {salonName || "us"}. Your appointment has been
+          confirmed, and we look forward to giving you a wonderful experience.
         </Text>
 
         <View style={[styles.detailCard, { backgroundColor: colors.card }]}>
@@ -35,6 +148,17 @@ export default function BookingConfirmationScreen() {
           <Row label="Time" value={time} colors={colors} />
           <Row label="Price" value={`GHS ${price}`} colors={colors} last />
         </View>
+
+        <Pressable
+          style={[styles.calendarButton, { borderColor: colors.border }]}
+          onPress={handleAddToCalendar}
+          disabled={addingToCalendar}
+        >
+          <Ionicons name="calendar-outline" size={18} color="#C1683C" />
+          <Text style={styles.calendarButtonText}>
+            {addingToCalendar ? "Preparing…" : "Add to Calendar"}
+          </Text>
+        </Pressable>
 
         <Pressable
           style={styles.primaryButton}
@@ -121,6 +245,22 @@ const styles = StyleSheet.create({
   },
   detailLabel: { fontFamily: "Manrope_500Medium", fontSize: 14 },
   detailValue: { fontFamily: "Manrope_700Bold", fontSize: 14 },
+  calendarButton: {
+    flexDirection: "row",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    marginBottom: 12,
+    borderWidth: 1.5,
+  },
+  calendarButtonText: {
+    fontFamily: "Manrope_700Bold",
+    color: "#C1683C",
+    fontSize: 15,
+  },
   primaryButton: {
     backgroundColor: "#C1683C",
     borderRadius: 14,
