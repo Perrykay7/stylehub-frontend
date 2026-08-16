@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
+import { recordSalonView } from "../../data/recentlyViewed";
 import { useTheme } from "../../data/themeContext";
 import {
     fetchSalonById,
@@ -45,6 +46,7 @@ export default function SalonDetailScreen() {
         setSalon(data);
         setReviews(data.reviews);
         setError(null);
+        recordSalonView(id);
       })
       .catch(() => setError("Could not load salon details."))
       .finally(() => setLoading(false));

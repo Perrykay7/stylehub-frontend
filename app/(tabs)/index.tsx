@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +18,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../data/authContext";
+import { getRecentlyViewedSalonIds } from "../../data/recentlyViewed";
 import { useTheme } from "../../data/themeContext";
 import {
   addFavorite,
@@ -225,6 +227,15 @@ export default function BrowseScreen() {
   const [minRating, setMinRating] = useState(0);
   const [priceRange, setPriceRange] = useState<PriceRange>("any");
   const [showFilters, setShowFilters] = useState(false);
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
+
+  // Refresh recently-viewed salons whenever Home regains focus (e.g. coming
+  // back from a salon page you just opened).
+  useFocusEffect(
+    useCallback(() => {
+      getRecentlyViewedSalonIds().then(setRecentlyViewedIds);
+    }, [])
+  );
 
   useEffect(() => {
     fetchSalons()
@@ -353,6 +364,12 @@ export default function BrowseScreen() {
     }
     return groups;
   }, [filteredSalons]);
+
+  const recentlyViewedSalons = useMemo(() => {
+    return recentlyViewedIds
+      .map((id) => salons.find((s) => s.id === id))
+      .filter((s): s is Salon => !!s);
+  }, [recentlyViewedIds, salons]);
 
  const ListHeader = (
     <>
@@ -484,6 +501,28 @@ export default function BrowseScreen() {
                       />
                     ))}
                   </View>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+          {recentlyViewedSalons.length > 0 && (
+            <>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Recently Viewed</Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.bookAgainList}
+              >
+                {recentlyViewedSalons.map((salon) => (
+                  <RecommendedCard
+                    key={salon.id}
+                    salon={salon}
+                    favorited={favoriteIds.has(salon.id)}
+                    onToggleFavorite={toggleFavorite}
+                  />
                 ))}
               </ScrollView>
             </>
