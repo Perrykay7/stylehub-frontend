@@ -96,8 +96,9 @@ export type SalonAnalytics = {
   cancelledCount: number;
   noShowRate: number;
   noShowCount: number;
-  perProfessional: { professionalId: string; name: string; bookingCount: number; revenue: number; avgRating: number }[];
+  perProfessional: { professionalId: string; name: string; bookingCount: number; revenue: number; tips: number; avgRating: number }[];
   topServices: { serviceName: string; bookingCount: number; revenue: number }[];
+  totalTips: number;
 };
 
 export async function fetchSalonAnalytics(

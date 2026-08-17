@@ -402,6 +402,15 @@ export default function OwnerDashboardScreen() {
                       <StatCard label="No-show Rate" value={`${Math.round(analytics.noShowRate * 100)}%`} sub={`${analytics.noShowCount} no-shows`} />
                     </View>
 
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Tips</Text>
+                    <View style={styles.statsGrid}>
+                      <StatCard
+                        label="Total Tips"
+                        value={`GHS ${analytics.totalTips.toFixed(2)}`}
+                        sub="Across all your professionals"
+                      />
+                    </View>
+
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Per Professional</Text>
                     {analytics.perProfessional.length === 0 ? (
                       <Text style={[styles.emptyText, { color: colors.muted, marginBottom: 16 }]}>No professionals added yet.</Text>
@@ -414,6 +423,9 @@ export default function OwnerDashboardScreen() {
                               <Text style={[styles.listSub, { color: colors.muted }]}>
                                 {p.bookingCount} bookings{p.avgRating > 0 ? ` · ★ ${p.avgRating}` : ""}
                               </Text>
+                              {p.tips > 0 && (
+                                <Text style={[styles.listSub, { color: "#3D8B5F" }]}>+GHS {p.tips.toFixed(2)} tips</Text>
+                              )}
                             </View>
                             <Text style={[styles.listValue, { color: colors.clay }]}>GHS {p.revenue.toFixed(0)}</Text>
                           </View>
