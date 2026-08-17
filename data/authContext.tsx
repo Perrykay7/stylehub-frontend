@@ -28,7 +28,7 @@ type AuthContextType = {
     claimCode?: string,
     email?: string
   ) => Promise<void>;
-  login: (phone: string, password: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   reverify: (role: "owner" | "professional", inviteCode: string) => Promise<void>;
   updateProfile: (payload: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) => Promise<void>;
@@ -103,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.error || "Login failed");
     }
     await persistAuth(data.token, data.user);
+    return data.user as AuthUser;
   }
 
   async function reverify(role: "owner" | "professional", inviteCode: string) {

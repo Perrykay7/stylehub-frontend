@@ -21,6 +21,7 @@ export type MyProfessionalBooking = {
   dateLabel: string;
   time: string;
   price: number;
+  tipAmount: number;
   customerName: string;
   customerPhone: string;
 };

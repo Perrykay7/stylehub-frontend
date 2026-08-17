@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../data/authContext";
 import { getRecentlyViewedSalonIds } from "../../data/recentlyViewed";
+import { isSalonOpenNow } from "../../data/salonStatus";
 import { useTheme } from "../../data/themeContext";
 import {
   addFavorite,
@@ -76,6 +77,18 @@ function HeartButton({
   );
 }
 
+function OpenStatusBadge({ salon }: { salon: Salon }) {
+  const isOpen = isSalonOpenNow(salon.openTime, salon.closeTime);
+  return (
+    <View style={[styles.openBadge, { backgroundColor: isOpen ? "#E4F3EA" : "#F3E4E4" }]}>
+      <View style={[styles.openDot, { backgroundColor: isOpen ? "#3D8B5F" : "#A8442B" }]} />
+      <Text style={[styles.openBadgeText, { color: isOpen ? "#3D8B5F" : "#A8442B" }]}>
+        {isOpen ? "Open Now" : "Closed"}
+      </Text>
+    </View>
+  );
+}
+
 function SalonCard({
   salon,
   favorited,
@@ -100,6 +113,9 @@ function SalonCard({
           contentFit="cover"
         />
         <HeartButton favorited={favorited} onPress={() => onToggleFavorite(salon.id)} />
+        <View style={styles.openBadgeOverlay}>
+          <OpenStatusBadge salon={salon} />
+        </View>
         <View style={styles.sealOverlay}>
           <View style={styles.seal}>
             <Text style={styles.sealRating}>{salon.rating.toFixed(1)}</Text>
@@ -141,6 +157,9 @@ function RecommendedCard({
       <View style={styles.recImageWrap}>
         <Image source={{ uri: salon.imageUrl }} style={styles.recImage} contentFit="cover" />
         <HeartButton favorited={favorited} onPress={() => onToggleFavorite(salon.id)} />
+        <View style={styles.openBadgeOverlay}>
+          <OpenStatusBadge salon={salon} />
+        </View>
       </View>
       <View style={styles.recBody}>
         <Text style={[styles.recName, { color: colors.text }]} numberOfLines={1}>
@@ -905,6 +924,30 @@ const styles = StyleSheet.create({
   },
   heartIconActive: {
     color: "#E0567A",
+  },
+  openBadgeOverlay: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+  },
+  openBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  openDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  openBadgeText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   listContent: {
     paddingBottom: 100,

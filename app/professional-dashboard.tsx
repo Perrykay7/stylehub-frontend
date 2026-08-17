@@ -82,10 +82,16 @@ export default function ProfessionalDashboardScreen() {
   const upcomingBookings = useMemo(
     () =>
       [...bookings].sort((a, b) =>
-        `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
+        `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
       ),
     [bookings]
   );
+
+  const totalTips = useMemo(
+    () => Math.round(bookings.reduce((sum, b) => sum + (b.tipAmount || 0), 0) * 100) / 100,
+    [bookings]
+  );
+  const tippedBookingsCount = bookings.filter((b) => b.tipAmount > 0).length;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -110,6 +116,11 @@ export default function ProfessionalDashboardScreen() {
               label="Avg Rating"
               value={ratings && ratings.count > 0 ? `★ ${ratings.average}` : "No ratings yet"}
               sub={ratings && ratings.count > 0 ? `${ratings.count} review${ratings.count > 1 ? "s" : ""}` : undefined}
+            />
+            <StatCard
+              label="Tips Earned"
+              value={`GHS ${totalTips.toFixed(2)}`}
+              sub={tippedBookingsCount > 0 ? `from ${tippedBookingsCount} booking${tippedBookingsCount > 1 ? "s" : ""}` : undefined}
             />
           </View>
 
@@ -175,6 +186,9 @@ export default function ProfessionalDashboardScreen() {
                       <Text style={[styles.listSub, { color: colors.muted }]}>
                         {b.customerPhone}
                       </Text>
+                    )}
+                    {b.tipAmount > 0 && (
+                      <Text style={styles.tipBadgeText}>+GHS {b.tipAmount.toFixed(2)} tip 💸</Text>
                     )}
                   </View>
                   <Text style={[styles.listValue, { color: colors.clay }]}>GHS {b.price}</Text>
@@ -291,6 +305,12 @@ const styles = StyleSheet.create({
   listMain: { fontFamily: "Manrope_600SemiBold", fontSize: 14 },
   listSub: { fontFamily: "Manrope_500Medium", fontSize: 12, marginTop: 2 },
   listValue: { fontFamily: "Manrope_700Bold", fontSize: 14 },
+  tipBadgeText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 12,
+    color: "#3D8B5F",
+    marginTop: 4,
+  },
   acceptButton: {
     borderRadius: 10,
     paddingVertical: 8,

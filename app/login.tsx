@@ -3,7 +3,10 @@ import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -31,8 +34,10 @@ export default function LoginScreen() {
     setError(null);
     setSubmitting(true);
     try {
-     await login(phone, password);
-      router.replace("/(tabs)" as any);
+      const loggedInUser = await login(phone, password);
+      router.replace(
+        loggedInUser.role === "professional" ? "/professional-dashboard" : ("/(tabs)" as any)
+      );
     } catch (err: any) {
       setError(err.message || "Login failed.");
     } finally {
@@ -43,7 +48,15 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: "Log In", headerShown: false }} />
-      <View style={styles.content}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.eyebrow}>STYLEHUB</Text>
         <Text style={[styles.title, { color: colors.text }]}>Welcome back</Text>
         <Text style={[styles.subtitle, { color: colors.muted }]}>Log in to book your next appointment</Text>
@@ -105,7 +118,8 @@ export default function LoginScreen() {
             Don't have an account? <Text style={[styles.linkBold, { color: colors.text }]}>Sign up</Text>
           </Text>
         </Pressable>
-      </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -122,9 +136,9 @@ const styles = StyleSheet.create({
     backgroundColor: PAPER,
   },
   content: {
-    flex: 1,
-    justifyContent: "center",
     paddingHorizontal: 28,
+    paddingTop: 100,
+    paddingBottom: 24,
   },
   eyebrow: {
     fontFamily: "Manrope_700Bold",

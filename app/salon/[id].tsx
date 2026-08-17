@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../data/authContext";
 import { recordSalonView } from "../../data/recentlyViewed";
+import { isSalonOpenNow } from "../../data/salonStatus";
 import { useTheme } from "../../data/themeContext";
 import {
     fetchSalonById,
@@ -92,6 +93,8 @@ export default function SalonDetailScreen() {
     );
   }
 
+  const isOpenNow = isSalonOpenNow(salon.openTime, salon.closeTime);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ title: salon.name }} />
@@ -119,9 +122,17 @@ export default function SalonDetailScreen() {
             <Text style={[styles.distance, { color: colors.muted }]}>{salon.distanceKm} km away</Text>
           </View>
           <Text style={[styles.address, { color: colors.muted }]}>{salon.address}</Text>
-          <Text style={[styles.hours, { color: colors.muted }]}>
-            Open {salon.openTime} – {salon.closeTime}
-          </Text>
+          <View style={styles.hoursRow}>
+            <Text style={[styles.hours, { color: colors.muted }]}>
+              Open {salon.openTime} – {salon.closeTime}
+            </Text>
+            <View style={[styles.openBadge, { backgroundColor: isOpenNow ? "#E4F3EA" : "#F3E4E4" }]}>
+              <View style={[styles.openDot, { backgroundColor: isOpenNow ? "#3D8B5F" : "#A8442B" }]} />
+              <Text style={[styles.openBadgeText, { color: isOpenNow ? "#3D8B5F" : "#A8442B" }]}>
+                {isOpenNow ? "Open Now" : "Closed"}
+              </Text>
+            </View>
+          </View>
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
@@ -355,7 +366,31 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_500Medium",
     fontSize: 14,
     color: MUTED,
+  },
+  hoursRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     marginTop: 2,
+  },
+  openBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  openDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  openBadgeText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   sectionTitle: {
     fontFamily: "PlayfairDisplay_700Bold",
