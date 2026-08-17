@@ -7,6 +7,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -87,6 +88,9 @@ export default function BookingScreen() {
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<
     string | "no_preference"
   >(professionalId || "no_preference");
+
+  const [tipOption, setTipOption] = useState<"none" | "10" | "15" | "20" | "custom">("none");
+  const [customTipInput, setCustomTipInput] = useState("");
 
  useEffect(() => {
     fetchSalonById(salonId)
@@ -198,6 +202,7 @@ export default function BookingScreen() {
             selectedProfessionalId === "no_preference"
               ? undefined
               : selectedProfessionalId,
+          tipAmount: tipAmount > 0 ? tipAmount : undefined,
         },
         token
       );
@@ -213,6 +218,8 @@ export default function BookingScreen() {
           time: selectedTime,
           durationMins: String(service.durationMins),
           price: String(discountedPrice),
+          tipAmount: String(tipAmount),
+          professionalName: selectedProfessional?.name ?? "",
         },
       } as any);
     } catch (err: any) {
@@ -282,6 +289,16 @@ export default function BookingScreen() {
       : professionals.find((p) => p.id === selectedProfessionalId) || null;
   const selectedProfessionalUnavailable = !!selectedProfessional?.unavailableAllDay;
 
+  const showTipOption = !isRescheduling && !!selectedProfessional;
+  const tipAmount = !showTipOption
+    ? 0
+    : tipOption === "none"
+    ? 0
+    : tipOption === "custom"
+    ? Math.max(0, Math.round((parseFloat(customTipInput) || 0) * 100) / 100)
+    : Math.round(discountedPrice * (parseInt(tipOption, 10) / 100) * 100) / 100;
+  const totalWithTip = Math.round((discountedPrice + tipAmount) * 100) / 100;
+
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: isRescheduling ? "Reschedule Appointment" : "Book Appointment" }} />
@@ -327,6 +344,7 @@ export default function BookingScreen() {
               onPress={() => {
                 setSelectedProfessionalId("no_preference");
                 setSelectedTime(null);
+                setTipOption("none");
               }}
             >
               <View style={styles.proAvatarPlaceholder}>
@@ -407,6 +425,57 @@ export default function BookingScreen() {
                 </Pressable>
               );
             })}
+          </>
+        )}
+
+        {showTipOption && (
+          <>
+            <Text style={styles.sectionTitle}>Add a Tip for {selectedProfessional!.name}?</Text>
+            <View style={styles.tipRow}>
+              {(
+                [
+                  { key: "none", label: "No tip" },
+                  { key: "10", label: "10%" },
+                  { key: "15", label: "15%" },
+                  { key: "20", label: "20%" },
+                  { key: "custom", label: "Custom" },
+                ] as const
+              ).map((opt) => {
+                const isSelected = tipOption === opt.key;
+                return (
+                  <Pressable
+                    key={opt.key}
+                    style={[styles.tipChip, isSelected && styles.tipChipSelected]}
+                    onPress={() => setTipOption(opt.key)}
+                  >
+                    <Text style={[styles.tipChipText, isSelected && styles.tipChipTextSelected]}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {tipOption === "custom" && (
+              <View style={styles.customTipRow}>
+                <Text style={styles.customTipPrefix}>GHS</Text>
+                <TextInput
+                  style={styles.customTipInput}
+                  placeholder="0.00"
+                  placeholderTextColor="#B5AB9C"
+                  keyboardType="decimal-pad"
+                  value={customTipInput}
+                  onChangeText={setCustomTipInput}
+                />
+              </View>
+            )}
+
+            {tipAmount > 0 && (
+              <Text style={styles.tipSummary}>
+                +GHS {tipAmount.toFixed(2)} tip for {selectedProfessional!.name} · Total GHS{" "}
+                {totalWithTip.toFixed(2)}
+              </Text>
+            )}
           </>
         )}
 
@@ -682,6 +751,61 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: INK,
     marginBottom: 10,
+  },
+  tipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  tipChip: {
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+  },
+  tipChipSelected: {
+    backgroundColor: CLAY,
+    borderColor: CLAY,
+  },
+  tipChipText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    color: INK,
+  },
+  tipChipTextSelected: {
+    color: "#fff",
+  },
+  customTipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  customTipPrefix: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 14,
+    color: MUTED,
+    marginRight: 8,
+  },
+  customTipInput: {
+    flex: 1,
+    fontFamily: "Manrope_500Medium",
+    fontSize: 15,
+    color: INK,
+    paddingVertical: 12,
+  },
+  tipSummary: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    color: "#3D8B5F",
+    marginBottom: 20,
   },
   dayList: {
     gap: 10,

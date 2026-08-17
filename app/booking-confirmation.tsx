@@ -76,7 +76,7 @@ export default function BookingConfirmationScreen() {
       }
     })();
   }, []);
-  const { salonName, salonAddress, serviceName, date, dateLabel, time, durationMins, price } =
+  const { salonName, salonAddress, serviceName, date, dateLabel, time, durationMins, price, tipAmount, professionalName } =
     useLocalSearchParams<{
       salonName: string;
       salonAddress: string;
@@ -86,7 +86,12 @@ export default function BookingConfirmationScreen() {
       time: string;
       durationMins: string;
       price: string;
+      tipAmount?: string;
+      professionalName?: string;
     }>();
+
+  const parsedTip = parseFloat(tipAmount || "0") || 0;
+  const total = Math.round((parseFloat(price || "0") + parsedTip) * 100) / 100;
 
   async function handleAddToCalendar() {
     if (!date || !time) return;
@@ -144,9 +149,12 @@ export default function BookingConfirmationScreen() {
         <View style={[styles.detailCard, { backgroundColor: colors.card }]}>
           <Row label="Salon" value={salonName} colors={colors} />
           <Row label="Service" value={serviceName} colors={colors} />
+          {!!professionalName && <Row label="Professional" value={professionalName} colors={colors} />}
           <Row label="Date" value={dateLabel} colors={colors} />
           <Row label="Time" value={time} colors={colors} />
-          <Row label="Price" value={`GHS ${price}`} colors={colors} last />
+          <Row label="Price" value={`GHS ${price}`} colors={colors} last={parsedTip <= 0} />
+          {parsedTip > 0 && <Row label="Tip" value={`GHS ${parsedTip.toFixed(2)}`} colors={colors} />}
+          {parsedTip > 0 && <Row label="Total" value={`GHS ${total.toFixed(2)}`} colors={colors} last />}
         </View>
 
         <Pressable

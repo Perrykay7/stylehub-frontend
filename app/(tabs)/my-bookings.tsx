@@ -87,6 +87,11 @@ function BookingItem({
         </Text>
         <Text style={styles.price}>GHS {booking.price}</Text>
       </View>
+      {booking.tipAmount > 0 && (
+        <Text style={[styles.tipText, { color: colors.muted }]}>
+          + GHS {booking.tipAmount.toFixed(2)} tip for {booking.professionalName}
+        </Text>
+      )}
 
       {isUpcoming &&
         (canCancel ? (
@@ -447,6 +452,11 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_700Bold",
     fontSize: 14,
     color: CLAY,
+  },
+  tipText: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 12,
+    marginTop: 4,
   },
   rebookButton: {
     marginTop: 12,

@@ -72,6 +72,7 @@ export type Booking = {
   professionalName: string | null;
   noPreference: number;
   hasRating: number;
+  tipAmount: number;
 };
 
 export type ProfessionalDetail = {
@@ -230,6 +231,7 @@ export async function createBooking(
     price: number;
     promoCode?: string;
     professionalId?: string;
+    tipAmount?: number;
   },
   token: string
 ): Promise<Booking> {
@@ -241,10 +243,11 @@ export async function createBooking(
     },
     body: JSON.stringify(payload),
   });
+  const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error("Failed to create booking");
+    throw new Error(data?.error || "Failed to create booking");
   }
-  return response.json();
+  return data;
 }
 
 export async function fetchBookings(token: string): Promise<Booking[]> {
