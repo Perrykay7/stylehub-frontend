@@ -135,6 +135,17 @@ export default function SalonDetailScreen() {
           </View>
         </View>
 
+        {(salon.images || []).length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Photos</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
+              {salon.images.map((image) => (
+                <Image key={image.id} source={{ uri: image.url }} style={styles.galleryImage} contentFit="cover" />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Services</Text>
           <Text style={[styles.sectionHint, { color: colors.muted }]}>Tap a service to book it</Text>
@@ -403,6 +414,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: MUTED,
     marginBottom: 10,
+  },
+  galleryScroll: {
+    marginTop: 4,
+  },
+  galleryImage: {
+    width: 140,
+    height: 100,
+    borderRadius: 12,
+    marginRight: 10,
   },
   serviceItemWrapper: {
     backgroundColor: PAPER,

@@ -76,7 +76,7 @@ export default function BookingConfirmationScreen() {
       }
     })();
   }, []);
-  const { salonName, salonAddress, serviceName, date, dateLabel, time, durationMins, price, tipAmount, professionalName } =
+  const { salonName, salonAddress, serviceName, date, dateLabel, time, durationMins, price, tipAmount, professionalName, notes } =
     useLocalSearchParams<{
       salonName: string;
       salonAddress: string;
@@ -88,10 +88,12 @@ export default function BookingConfirmationScreen() {
       price: string;
       tipAmount?: string;
       professionalName?: string;
+      notes?: string;
     }>();
 
   const parsedTip = parseFloat(tipAmount || "0") || 0;
   const total = Math.round((parseFloat(price || "0") + parsedTip) * 100) / 100;
+  const hasNotes = !!notes && notes.trim().length > 0;
 
   async function handleAddToCalendar() {
     if (!date || !time) return;
@@ -156,6 +158,13 @@ export default function BookingConfirmationScreen() {
           {parsedTip > 0 && <Row label="Tip" value={`GHS ${parsedTip.toFixed(2)}`} colors={colors} />}
           {parsedTip > 0 && <Row label="Total" value={`GHS ${total.toFixed(2)}`} colors={colors} last />}
         </View>
+
+        {hasNotes && (
+          <View style={[styles.notesCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.notesLabel, { color: colors.muted }]}>Your note to the salon</Text>
+            <Text style={[styles.notesText, { color: colors.text }]}>{notes}</Text>
+          </View>
+        )}
 
         <Pressable
           style={[styles.calendarButton, { borderColor: colors.border }]}
@@ -253,6 +262,23 @@ const styles = StyleSheet.create({
   },
   detailLabel: { fontFamily: "Manrope_500Medium", fontSize: 14 },
   detailValue: { fontFamily: "Manrope_700Bold", fontSize: 14 },
+  notesCard: {
+    width: "100%",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 24,
+    marginTop: -8,
+  },
+  notesLabel: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  notesText: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 14,
+    lineHeight: 20,
+  },
   calendarButton: {
     flexDirection: "row",
     gap: 8,

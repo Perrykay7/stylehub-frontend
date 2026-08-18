@@ -21,6 +21,8 @@ import {
     addOwnerService,
     addProfessionalImage,
     removeProfessionalImage,
+    addSalonImage,
+    removeSalonImage,
     addServiceImage,
     removeServiceImage,
     uploadServicePhoto,
@@ -280,6 +282,10 @@ export default function MySalonScreen() {
   const [portfolioImages, setPortfolioImages] = useState<Record<string, ServiceImage[]>>({});
   const [loadingPortfolio, setLoadingPortfolio] = useState(false);
   const [uploadingPortfolioId, setUploadingPortfolioId] = useState<string | null>(null);
+
+  // Salon photo gallery state
+  const [galleryOpenSalonId, setGalleryOpenSalonId] = useState<string | null>(null);
+  const [uploadingGalleryPhotoId, setUploadingGalleryPhotoId] = useState<string | null>(null);
 
   // Loyalty program state
   const [loyaltySalonId, setLoyaltySalonId] = useState<string | null>(null);
@@ -554,6 +560,49 @@ export default function MySalonScreen() {
       Alert.alert("Error", err.message || "Could not upload photo.");
     } finally {
       setUploadingSalonPhotoId(null);
+    }
+  }
+
+  async function handlePickSalonGalleryPhoto(salon: OwnerSalon) {
+    if (!token) return;
+    if ((salon.images || []).length >= 6) {
+      Alert.alert("Limit reached", "You can add up to 6 photos per salon.");
+      return;
+    }
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo access to upload a picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setUploadingGalleryPhotoId(salon.id);
+    try {
+      const photoUrl = await uploadSalonPhoto(result.assets[0].uri, token);
+      await addSalonImage(salon.id, photoUrl, token);
+      await loadData();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not upload photo.");
+    } finally {
+      setUploadingGalleryPhotoId(null);
+    }
+  }
+
+  async function handleRemoveSalonGalleryPhoto(salonId: string, imageId: string) {
+    if (!token) return;
+    try {
+      await removeSalonImage(salonId, imageId, token);
+      await loadData();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not remove photo.");
     }
   }
 
@@ -1162,6 +1211,60 @@ export default function MySalonScreen() {
                     <Text style={styles.deleteText}>Delete Salon</Text>
                   </Pressable>
                 </View>
+
+                <Pressable
+                  style={styles.addServiceLink}
+                  onPress={() =>
+                    setGalleryOpenSalonId(galleryOpenSalonId === salon.id ? null : salon.id)
+                  }
+                >
+                  <Text style={styles.addServiceLinkText}>
+                    {galleryOpenSalonId === salon.id ? "▲ Hide Photos" : "📸 Salon Photos"}
+                  </Text>
+                </Pressable>
+
+                {galleryOpenSalonId === salon.id && (
+                  <View style={styles.serviceForm}>
+                    <Text style={styles.promoTargetLabel}>
+                      Photos customers see on {salon.name}'s page
+                    </Text>
+                    <View style={styles.servicePhotosRow}>
+                      {(salon.images || []).map((image) => (
+                        <View key={image.id} style={styles.servicePhotoThumbWrap}>
+                          <Image source={{ uri: image.url }} style={styles.servicePhotoThumb} />
+                          <Pressable
+                            style={styles.servicePhotoRemoveBtn}
+                            onPress={() =>
+                              Alert.alert("Remove photo", "Remove this photo from the gallery?", [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                  text: "Remove",
+                                  style: "destructive",
+                                  onPress: () => handleRemoveSalonGalleryPhoto(salon.id, image.id),
+                                },
+                              ])
+                            }
+                          >
+                            <Text style={styles.servicePhotoRemoveBtnText}>×</Text>
+                          </Pressable>
+                        </View>
+                      ))}
+                      {(salon.images || []).length < 6 &&
+                        (uploadingGalleryPhotoId === salon.id ? (
+                          <View style={styles.servicePhotoAddBtn}>
+                            <ActivityIndicator size="small" color={CLAY} />
+                          </View>
+                        ) : (
+                          <Pressable
+                            style={styles.servicePhotoAddBtn}
+                            onPress={() => handlePickSalonGalleryPhoto(salon)}
+                          >
+                            <Text style={styles.servicePhotoAddBtnText}>+ Photo</Text>
+                          </Pressable>
+                        ))}
+                    </View>
+                  </View>
+                )}
 
                 <Text style={styles.servicesLabel}>Services</Text>
                 {salon.services.length === 0 && (

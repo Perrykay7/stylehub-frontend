@@ -91,6 +91,7 @@ export default function BookingScreen() {
 
   const [tipOption, setTipOption] = useState<"none" | "10" | "15" | "20" | "custom">("none");
   const [customTipInput, setCustomTipInput] = useState("");
+  const [notes, setNotes] = useState("");
 
  useEffect(() => {
     fetchSalonById(salonId)
@@ -203,6 +204,7 @@ export default function BookingScreen() {
               ? undefined
               : selectedProfessionalId,
           tipAmount: tipAmount > 0 ? tipAmount : undefined,
+          notes: notes.trim() || undefined,
         },
         token
       );
@@ -220,6 +222,7 @@ export default function BookingScreen() {
           price: String(discountedPrice),
           tipAmount: String(tipAmount),
           professionalName: selectedProfessional?.name ?? "",
+          notes: notes.trim(),
         },
       } as any);
     } catch (err: any) {
@@ -567,6 +570,21 @@ export default function BookingScreen() {
             })}
           </View>
         )}
+
+        {!isRescheduling && (
+          <>
+            <Text style={styles.sectionTitle}>Notes for the Salon (Optional)</Text>
+            <TextInput
+              style={styles.notesInput}
+              placeholder="e.g. allergic to certain products, prefer scissors over clippers..."
+              placeholderTextColor="#B5AB9C"
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              maxLength={300}
+            />
+          </>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -806,6 +824,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#3D8B5F",
     marginBottom: 20,
+  },
+  notesInput: {
+    fontFamily: "Manrope_500Medium",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#EFE6D9",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: INK,
+    minHeight: 70,
+    textAlignVertical: "top",
+    marginBottom: 8,
   },
   dayList: {
     gap: 10,

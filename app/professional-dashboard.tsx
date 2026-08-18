@@ -190,6 +190,9 @@ export default function ProfessionalDashboardScreen() {
                     {b.tipAmount > 0 && (
                       <Text style={styles.tipBadgeText}>+GHS {b.tipAmount.toFixed(2)} tip 💸</Text>
                     )}
+                    {!!b.notes && (
+                      <Text style={[styles.notesText, { color: colors.text }]}>📝 {b.notes}</Text>
+                    )}
                   </View>
                   <Text style={[styles.listValue, { color: colors.clay }]}>GHS {b.price}</Text>
                 </View>
@@ -310,6 +313,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#3D8B5F",
     marginTop: 4,
+  },
+  notesText: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: "italic",
   },
   acceptButton: {
     borderRadius: 10,

@@ -22,6 +22,7 @@ export type MyProfessionalBooking = {
   time: string;
   price: number;
   tipAmount: number;
+  notes: string | null;
   customerName: string;
   customerPhone: string;
 };

@@ -42,6 +42,7 @@ export type Salon = {
   customerServiceContacts: CustomerServiceContact[];
   services: Service[];
   reviews: Review[];
+  images: ServiceImage[];
 };
 
 export type Professional = {
@@ -73,6 +74,7 @@ export type Booking = {
   noPreference: number;
   hasRating: number;
   tipAmount: number;
+  notes: string | null;
 };
 
 export type ProfessionalDetail = {
@@ -232,6 +234,7 @@ export async function createBooking(
     promoCode?: string;
     professionalId?: string;
     tipAmount?: number;
+    notes?: string;
   },
   token: string
 ): Promise<Booking> {

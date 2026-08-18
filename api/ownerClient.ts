@@ -25,6 +25,7 @@ export type OwnerSalon = {
     price: number;
     images: { id: string; url: string }[];
   }[];
+  images: { id: string; url: string }[];
 };
 
 export type OwnerBooking = {
@@ -269,6 +270,32 @@ export async function removeProfessionalImage(
       headers: authHeaders(token),
     }
   );
+  if (!response.ok) throw new Error("Failed to remove photo");
+  return response.json();
+}
+
+export async function addSalonImage(
+  salonId: string,
+  imageUrl: string,
+  token: string
+): Promise<ServiceImage> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/images`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ imageUrl }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || "Failed to add photo");
+  }
+  return data;
+}
+
+export async function removeSalonImage(salonId: string, imageId: string, token: string) {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/images/${imageId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
   if (!response.ok) throw new Error("Failed to remove photo");
   return response.json();
 }
