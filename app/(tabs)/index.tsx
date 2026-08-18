@@ -400,11 +400,6 @@ export default function BrowseScreen() {
           <Pressable onPress={() => router.push("/my-bookings")}>
             <Text style={[styles.myBookingsLink, { color: colors.text }]}>My Bookings</Text>
           </Pressable>
-          {user?.role === "owner" && (
-            <Pressable onPress={() => router.push("/my-salon")}>
-              <Text style={[styles.myBookingsLink, { color: colors.text }]}>My Salon</Text>
-            </Pressable>
-          )}
         </View>
       </View>
       <View style={styles.searchRow}>

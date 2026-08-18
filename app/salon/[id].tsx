@@ -1,9 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -40,6 +42,15 @@ export default function SalonDetailScreen() {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  const [viewerImages, setViewerImages] = useState<{ id: string; url: string }[] | null>(null);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const viewerScrollRef = useRef<ScrollView>(null);
+
+  function openViewer(images: { id: string; url: string }[], index: number) {
+    setViewerImages(images);
+    setViewerIndex(index);
+  }
 
   useEffect(() => {
     fetchSalonById(id)
@@ -139,8 +150,10 @@ export default function SalonDetailScreen() {
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Photos</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
-              {salon.images.map((image) => (
-                <Image key={image.id} source={{ uri: image.url }} style={styles.galleryImage} contentFit="cover" />
+              {salon.images.map((image, index) => (
+                <Pressable key={image.id} onPress={() => openViewer(salon.images, index)}>
+                  <Image source={{ uri: image.url }} style={styles.galleryImage} contentFit="cover" />
+                </Pressable>
               ))}
             </ScrollView>
           </View>
@@ -185,13 +198,14 @@ export default function SalonDetailScreen() {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.servicePhotosRow}
                       >
-                        {service.images.map((image) => (
-                          <Image
-                            key={image.id}
-                            source={{ uri: image.url }}
-                            style={styles.servicePhotoBig}
-                            contentFit="cover"
-                          />
+                        {service.images.map((image, index) => (
+                          <Pressable key={image.id} onPress={() => openViewer(service.images, index)}>
+                            <Image
+                              source={{ uri: image.url }}
+                              style={styles.servicePhotoBig}
+                              contentFit="cover"
+                            />
+                          </Pressable>
                         ))}
                       </ScrollView>
                     )}
@@ -262,6 +276,44 @@ export default function SalonDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <Modal
+        visible={viewerImages !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewerImages(null)}
+      >
+        <View style={styles.viewerOverlay}>
+          <Pressable style={styles.viewerCloseButton} onPress={() => setViewerImages(null)} hitSlop={12}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </Pressable>
+          {viewerImages !== null && viewerImages.length > 1 && (
+            <Text style={styles.viewerCounter}>
+              {viewerIndex + 1} / {viewerImages.length}
+            </Text>
+          )}
+          {viewerImages !== null && (
+            <ScrollView
+              ref={viewerScrollRef}
+              style={styles.viewerScroll}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              contentOffset={{ x: viewerIndex * SCREEN_WIDTH, y: 0 }}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                setViewerIndex(index);
+              }}
+            >
+              {viewerImages.map((image) => (
+                <View key={image.id} style={styles.viewerPage}>
+                  <Image source={{ uri: image.url }} style={styles.viewerImage} contentFit="contain" />
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -271,6 +323,7 @@ const INK = "#2B2622";
 const PAPER = "#FBF7F2";
 const SAGE = "#8A9A7E";
 const MUTED = "#8C8378";
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const styles = StyleSheet.create({
   container: {
@@ -579,4 +632,43 @@ const styles = StyleSheet.create({
   },
   submitBtnText: { fontFamily: "Manrope_700Bold", color: "#fff", fontSize: 15 },
   cancelText: { fontFamily: "Manrope_600SemiBold", fontSize: 14, textAlign: "center" },
+  viewerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+  },
+  viewerCloseButton: {
+    position: "absolute",
+    top: 56,
+    right: 20,
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewerCounter: {
+    position: "absolute",
+    top: 66,
+    alignSelf: "center",
+    zIndex: 1,
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+    color: "#fff",
+  },
+  viewerScroll: {
+    flex: 1,
+  },
+  viewerPage: {
+    width: SCREEN_WIDTH,
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewerImage: {
+    width: SCREEN_WIDTH,
+    height: "100%",
+  },
 });
