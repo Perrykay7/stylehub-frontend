@@ -78,6 +78,10 @@ export default function ProfileScreen() {
             <Text style={[styles.rowText, { color: colors.text }]}>📝 Edit Profile</Text>
             <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
           </Pressable>
+          <Pressable style={styles.row} onPress={() => router.push("/favorites" as any)}>
+            <Text style={[styles.rowText, { color: colors.text }]}>❤️ My Favorites</Text>
+            <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
+          </Pressable>
           {user?.role === "owner" && (
             <Pressable style={styles.row} onPress={() => router.push("/owner-dashboard" as any)}>
               <Text style={[styles.rowText, { color: colors.text }]}>📊 Dashboard</Text>

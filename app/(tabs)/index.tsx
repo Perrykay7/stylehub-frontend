@@ -131,7 +131,9 @@ function SalonCard({
           <Text style={[styles.dot, { color: colors.muted }]}>·</Text>
           <Text style={[styles.distance, { color: colors.muted }]}>{salon.distanceKm} km</Text>
         </View>
-        <Text style={[styles.address, { color: colors.muted }]}>{salon.address}</Text>
+        {!!salon.address && (
+          <Text style={[styles.address, { color: colors.muted }]}>{salon.address}</Text>
+        )}
       </View>
     </Pressable>
   );
@@ -171,9 +173,11 @@ function RecommendedCard({
             {salon.rating.toFixed(1)} · {salon.distanceKm} km
           </Text>
         </View>
-        <Text style={[styles.recMeta, { color: colors.muted }]} numberOfLines={1}>
-          {salon.address}
-        </Text>
+        {!!salon.address && (
+          <Text style={[styles.recMeta, { color: colors.muted }]} numberOfLines={1}>
+            {salon.address}
+          </Text>
+        )}
       </View>
     </Pressable>
   );

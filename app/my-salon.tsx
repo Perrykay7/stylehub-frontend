@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { useAuth } from "../data/authContext";
 import { fetchProfessionalById, ServiceImage } from "../api/client";
 import {
@@ -186,6 +187,7 @@ export default function MySalonScreen() {
  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingSalonPhotoId, setUploadingSalonPhotoId] = useState<string | null>(null);
   const [uploadingServicePhotoId, setUploadingServicePhotoId] = useState<string | null>(null);
+  const [capturingLocationId, setCapturingLocationId] = useState<string | null>(null);
 
   // Manual booking state
   const [manualBookingSalonId, setManualBookingSalonId] = useState<string | null>(null);
@@ -337,8 +339,8 @@ export default function MySalonScreen() {
 
   async function handleCreateSalon() {
     if (!token) return;
-    if (!salonName || !salonCategory || !salonAddress) {
-      Alert.alert("Missing info", "Please fill in all salon fields.");
+    if (!salonName || !salonCategory) {
+      Alert.alert("Missing info", "Please fill in the salon name and category.");
       return;
     }
     setSubmittingSalon(true);
@@ -369,15 +371,15 @@ export default function MySalonScreen() {
     setEditingSalonId(salon.id);
     setEditName(salon.name);
     setEditCategory(salon.category);
-    setEditAddress(salon.address);
+    setEditAddress(salon.address || "");
     setEditOpen(salon.openTime);
     setEditClose(salon.closeTime);
   }
 
   async function handleSaveEdit(salonId: string) {
     if (!token) return;
-    if (!editName || !editCategory || !editAddress) {
-      Alert.alert("Missing info", "Please fill in all salon fields.");
+    if (!editName || !editCategory) {
+      Alert.alert("Missing info", "Please fill in the salon name and category.");
       return;
     }
     setSubmittingEdit(true);
@@ -560,7 +562,7 @@ export default function MySalonScreen() {
         {
           name: salon.name,
           category: salon.category,
-          address: salon.address,
+          address: salon.address || undefined,
           openTime: salon.openTime,
           closeTime: salon.closeTime,
           imageUrl: photoUrl,
@@ -572,6 +574,74 @@ export default function MySalonScreen() {
       Alert.alert("Error", err.message || "Could not upload photo.");
     } finally {
       setUploadingSalonPhotoId(null);
+    }
+  }
+
+  async function captureExactLocation(salon: OwnerSalon) {
+    if (!token) return;
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow location access to set your salon's exact location.");
+      return;
+    }
+
+    setCapturingLocationId(salon.id);
+    try {
+      const position = await Location.getCurrentPositionAsync({});
+      await updateOwnerSalon(
+        salon.id,
+        {
+          name: salon.name,
+          category: salon.category,
+          address: salon.address || undefined,
+          openTime: salon.openTime,
+          closeTime: salon.closeTime,
+          imageUrl: salon.imageUrl,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        },
+        token
+      );
+      await loadData();
+      Alert.alert("Location set", "Directions from this salon's page will now be exact.");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not get your current location.");
+    } finally {
+      setCapturingLocationId(null);
+    }
+  }
+
+  async function clearExactLocation(salon: OwnerSalon) {
+    if (!token) return;
+    try {
+      await updateOwnerSalon(
+        salon.id,
+        {
+          name: salon.name,
+          category: salon.category,
+          address: salon.address || undefined,
+          openTime: salon.openTime,
+          closeTime: salon.closeTime,
+          imageUrl: salon.imageUrl,
+          clearLocation: true,
+        },
+        token
+      );
+      await loadData();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not clear the location.");
+    }
+  }
+
+  function handleLocationAction(salon: OwnerSalon) {
+    if (salon.latitude != null && salon.longitude != null) {
+      Alert.alert("Exact Location", "This salon already has an exact location set.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Update to Here", onPress: () => captureExactLocation(salon) },
+        { text: "Clear", style: "destructive", onPress: () => clearExactLocation(salon) },
+      ]);
+    } else {
+      captureExactLocation(salon);
     }
   }
 
@@ -1243,13 +1313,27 @@ export default function MySalonScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.salonName}>{salon.name}</Text>
                     <Text style={styles.salonMeta}>
-                      {salon.category} · {salon.address}
+                      {salon.category}
+                      {salon.address ? ` · ${salon.address}` : ""}
                     </Text>
                     <Text style={styles.salonMeta}>
                       Open {salon.openTime} – {salon.closeTime}
                     </Text>
                   </View>
                 </View>
+
+                <Pressable
+                  onPress={() => handleLocationAction(salon)}
+                  disabled={capturingLocationId === salon.id}
+                >
+                  <Text style={styles.locationLink}>
+                    {capturingLocationId === salon.id
+                      ? "📍 Getting location..."
+                      : salon.latitude != null && salon.longitude != null
+                      ? "📍 Exact location set — tap to update or clear"
+                      : "📍 Set exact location (for accurate Directions)"}
+                  </Text>
+                </Pressable>
 
                 <View style={styles.salonActionsRow}>
                   <Pressable onPress={() => startEditing(salon)}>
@@ -2469,6 +2553,12 @@ const styles = StyleSheet.create({
   editText: { fontFamily: "Manrope_700Bold", fontSize: 13, color: INK },
   salonName: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 18, color: INK },
   salonMeta: { fontFamily: "Manrope_500Medium", fontSize: 13, color: MUTED, marginTop: 2 },
+  locationLink: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
+    color: CLAY,
+    marginTop: 10,
+  },
   servicesLabel: {
     fontFamily: "Manrope_700Bold",
     fontSize: 13,

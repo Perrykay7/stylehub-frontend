@@ -7,6 +7,7 @@ import {
     Alert,
     Dimensions,
     KeyboardAvoidingView,
+    Linking,
     Modal,
     Platform,
     Pressable,
@@ -132,7 +133,28 @@ export default function SalonDetailScreen() {
             <Text style={[styles.dot, { color: colors.muted }]}>·</Text>
             <Text style={[styles.distance, { color: colors.muted }]}>{salon.distanceKm} km away</Text>
           </View>
-          <Text style={[styles.address, { color: colors.muted }]}>{salon.address}</Text>
+          {(!!salon.address || (salon.latitude != null && salon.longitude != null)) && (
+            <View style={styles.addressRow}>
+              {!!salon.address && (
+                <Text style={[styles.address, { color: colors.muted }]}>{salon.address}</Text>
+              )}
+              <Pressable
+                style={[styles.directionsButton, { borderColor: colors.border }]}
+                onPress={() => {
+                  const query =
+                    salon.latitude != null && salon.longitude != null
+                      ? `${salon.latitude},${salon.longitude}`
+                      : `${salon.name}, ${salon.address}`;
+                  Linking.openURL(
+                    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+                  );
+                }}
+              >
+                <Ionicons name="navigate-outline" size={14} color={colors.clay} />
+                <Text style={[styles.directionsButtonText, { color: colors.clay }]}>Directions</Text>
+              </Pressable>
+            </View>
+          )}
           <View style={styles.hoursRow}>
             <Text style={[styles.hours, { color: colors.muted }]}>
               Open {salon.openTime} – {salon.closeTime}
@@ -424,7 +446,26 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_500Medium",
     fontSize: 14,
     color: MUTED,
+    flex: 1,
+    marginRight: 8,
+  },
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 10,
+  },
+  directionsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  directionsButtonText: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 12,
   },
   hours: {
     fontFamily: "Manrope_500Medium",

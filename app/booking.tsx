@@ -213,7 +213,7 @@ export default function BookingScreen() {
         pathname: "/booking-confirmation",
         params: {
           salonName: salon.name,
-          salonAddress: salon.address,
+          salonAddress: salon.address || "",
           serviceName: service.name,
           date: isoDate,
           dateLabel,

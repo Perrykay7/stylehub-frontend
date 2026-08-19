@@ -32,13 +32,15 @@ export type Salon = {
   id: string;
   name: string;
   category: string;
-  address: string;
+  address: string | null;
   distanceKm: number;
   rating: number;
   reviewCount: number;
   imageUrl: string;
   openTime: string;
   closeTime: string;
+  latitude: number | null;
+  longitude: number | null;
   customerServiceContacts: CustomerServiceContact[];
   services: Service[];
   reviews: Review[];

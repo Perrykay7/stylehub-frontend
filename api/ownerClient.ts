@@ -13,10 +13,12 @@ export type OwnerSalon = {
   ownerId: string;
   name: string;
   category: string;
-  address: string;
+  address: string | null;
   imageUrl: string;
   openTime: string;
   closeTime: string;
+  latitude: number | null;
+  longitude: number | null;
   customerServiceContacts: CustomerServiceContact[];
   services: {
     id: string;
@@ -438,7 +440,7 @@ export async function createOwnerSalon(
   payload: {
     name: string;
     category: string;
-    address: string;
+    address?: string;
     openTime: string;
     closeTime: string;
     imageUrl?: string;
@@ -622,10 +624,13 @@ export async function updateOwnerSalon(
   payload: {
     name: string;
     category: string;
-    address: string;
+    address?: string;
     openTime: string;
     closeTime: string;
     imageUrl?: string;
+    latitude?: number;
+    longitude?: number;
+    clearLocation?: boolean;
   },
   token: string
 ): Promise<OwnerSalon> {
