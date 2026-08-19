@@ -23,6 +23,10 @@ import {
     removeProfessionalImage,
     addSalonImage,
     removeSalonImage,
+    addSalonClosure,
+    removeSalonClosure,
+    fetchSalonClosures,
+    SalonClosure,
     addServiceImage,
     removeServiceImage,
     uploadServicePhoto,
@@ -269,6 +273,14 @@ export default function MySalonScreen() {
   const [blockedSlots, setBlockedSlots] = useState<{ id: string; time: string }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [togglingSlot, setTogglingSlot] = useState<string | null>(null);
+
+  // Special closure dates state
+  const [closureSalonId, setClosureSalonId] = useState<string | null>(null);
+  const [closureDate, setClosureDate] = useState("");
+  const [closureReason, setClosureReason] = useState("");
+  const [closures, setClosures] = useState<SalonClosure[]>([]);
+  const [loadingClosures, setLoadingClosures] = useState(false);
+  const [savingClosure, setSavingClosure] = useState(false);
 
   // Professional time-off state
   const [timeOffProfessionalId, setTimeOffProfessionalId] = useState<string | null>(null);
@@ -982,6 +994,44 @@ export default function MySalonScreen() {
       Alert.alert("Error", err.message || "Could not update slot.");
     } finally {
       setTogglingSlot(null);
+    }
+  }
+
+  async function handleLoadClosures(salonId: string) {
+    if (!token) return;
+    setLoadingClosures(true);
+    try {
+      const data = await fetchSalonClosures(salonId, token);
+      setClosures(data);
+    } catch {
+      Alert.alert("Error", "Could not load closure dates.");
+    } finally {
+      setLoadingClosures(false);
+    }
+  }
+
+  async function handleAddClosure(salonId: string) {
+    if (!token || !closureDate) return;
+    setSavingClosure(true);
+    try {
+      const result = await addSalonClosure(salonId, closureDate, closureReason.trim(), token);
+      setClosures((prev) => [...prev, result].sort((a, b) => a.date.localeCompare(b.date)));
+      setClosureDate("");
+      setClosureReason("");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not close this date.");
+    } finally {
+      setSavingClosure(false);
+    }
+  }
+
+  async function handleRemoveClosure(salonId: string, closureId: string) {
+    if (!token) return;
+    try {
+      await removeSalonClosure(salonId, closureId, token);
+      setClosures((prev) => prev.filter((c) => c.id !== closureId));
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not reopen this date.");
     }
   }
 
@@ -2112,6 +2162,68 @@ export default function MySalonScreen() {
               </View>
             )}
 
+            {/* Special Closure Dates */}
+            <Pressable
+              style={styles.addServiceLink}
+              onPress={() => {
+                if (closureSalonId === salon.id) {
+                  setClosureSalonId(null);
+                } else {
+                  setClosureSalonId(salon.id);
+                  setClosureDate("");
+                  setClosureReason("");
+                  handleLoadClosures(salon.id);
+                }
+              }}
+            >
+              <Text style={styles.addServiceLinkText}>
+                {closureSalonId === salon.id ? "▲ Hide Closure Dates" : "🚫 Closure Dates"}
+              </Text>
+            </Pressable>
+
+            {closureSalonId === salon.id && (
+              <View style={styles.serviceForm}>
+                <Text style={styles.promoTargetLabel}>
+                  Close a whole date (e.g. a holiday) beyond your regular hours
+                </Text>
+                <DatePickerRow selectedDate={closureDate} onSelect={setClosureDate} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Reason (optional, e.g. Christmas)"
+                  placeholderTextColor="#A89D8F"
+                  value={closureReason}
+                  onChangeText={setClosureReason}
+                />
+                <Pressable
+                  style={[styles.smallButton, (!closureDate || savingClosure) && styles.buttonDisabled]}
+                  onPress={() => handleAddClosure(salon.id)}
+                  disabled={!closureDate || savingClosure}
+                >
+                  <Text style={styles.smallButtonText}>
+                    {savingClosure ? "Closing..." : "Close This Date"}
+                  </Text>
+                </Pressable>
+
+                {loadingClosures ? (
+                  <ActivityIndicator color="#C1683C" style={{ marginTop: 10 }} />
+                ) : closures.length === 0 ? (
+                  <Text style={styles.slotHint}>No upcoming closure dates.</Text>
+                ) : (
+                  closures.map((c) => (
+                    <View key={c.id} style={styles.closureRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.closureDate}>{c.date}</Text>
+                        {c.reason && <Text style={styles.closureReason}>{c.reason}</Text>}
+                      </View>
+                      <Pressable onPress={() => handleRemoveClosure(salon.id, c.id)}>
+                        <Text style={styles.deleteText}>Reopen</Text>
+                      </Pressable>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+
             {/* Loyalty Program */}
             <Pressable
               style={styles.addServiceLink}
@@ -2709,5 +2821,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#A89D8F",
     marginTop: 8,
+  },
+  closureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#EFE6D9",
+    marginTop: 4,
+  },
+  closureDate: {
+    fontFamily: "Manrope_700Bold",
+    fontSize: 14,
+    color: "#2B2622",
+  },
+  closureReason: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 12,
+    color: "#8C8378",
+    marginTop: 2,
   },
 });

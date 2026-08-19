@@ -373,6 +373,47 @@ export async function unblockSlot(salonId: string, date: string, time: string, t
   if (!response.ok) throw new Error("Failed to unblock slot");
 }
 
+export type SalonClosure = {
+  id: string;
+  salonId: string;
+  date: string;
+  reason: string | null;
+  createdAt: string;
+};
+
+export async function fetchSalonClosures(salonId: string, token: string): Promise<SalonClosure[]> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/closures`, {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch closure dates");
+  return response.json();
+}
+
+export async function addSalonClosure(
+  salonId: string,
+  date: string,
+  reason: string,
+  token: string
+): Promise<SalonClosure> {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/closures`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ date, reason: reason || undefined }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Failed to close this date");
+  return data;
+}
+
+export async function removeSalonClosure(salonId: string, closureId: string, token: string) {
+  const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/closures/${closureId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to reopen this date");
+  return response.json();
+}
+
 export async function fetchOwnerStats(token: string): Promise<OwnerStats> {
   const response = await fetch(`${BASE_URL}/owner/stats`, {
     headers: authHeaders(token),
