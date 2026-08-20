@@ -110,7 +110,7 @@ export default function ReportIssueScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inner: { padding: 24 },
+  inner: { padding: 24, paddingBottom: 220 },
   title: { fontFamily: "Manrope_700Bold", fontSize: 22, marginBottom: 6 },
   subtitle: { fontFamily: "Manrope_400Regular", fontSize: 13, marginBottom: 24, lineHeight: 19 },
   label: { fontFamily: "Manrope_600SemiBold", fontSize: 13, marginBottom: 8 },
