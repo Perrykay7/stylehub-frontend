@@ -310,6 +310,8 @@ export type SalonHour = {
   openTime: string | null;
   closeTime: string | null;
   isClosed: number;
+  breakStart: string | null;
+  breakEnd: string | null;
 };
 
 export async function fetchSalonHours(salonId: string, token: string): Promise<SalonHour[]> {
@@ -320,7 +322,18 @@ export async function fetchSalonHours(salonId: string, token: string): Promise<S
   return response.json();
 }
 
-export async function updateSalonHours(salonId: string, hours: { dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean }[], token: string): Promise<SalonHour[]> {
+export async function updateSalonHours(
+  salonId: string,
+  hours: {
+    dayOfWeek: number;
+    openTime: string;
+    closeTime: string;
+    isClosed: boolean;
+    breakStart?: string;
+    breakEnd?: string;
+  }[],
+  token: string
+): Promise<SalonHour[]> {
   const response = await fetch(`${BASE_URL}/owner/salons/${salonId}/hours`, {
     method: "PUT",
     headers: authHeaders(token),

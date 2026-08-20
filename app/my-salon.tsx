@@ -228,7 +228,9 @@ export default function MySalonScreen() {
   // Working hours state
   const [hoursSalonId, setHoursSalonId] = useState<string | null>(null);
   const [salonHours, setSalonHours] = useState<SalonHour[]>([]);
-  const [editingHours, setEditingHours] = useState<{ dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean }[]>([]);
+  const [editingHours, setEditingHours] = useState<
+    { dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean; breakStart: string; breakEnd: string }[]
+  >([]);
   const [savingHours, setSavingHours] = useState(false);
 
   const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -247,6 +249,8 @@ export default function MySalonScreen() {
           openTime: found?.openTime || salon?.openTime || "09:00",
           closeTime: found?.closeTime || salon?.closeTime || "18:00",
           isClosed: found ? found.isClosed === 1 : false,
+          breakStart: found?.breakStart || "",
+          breakEnd: found?.breakEnd || "",
         };
       });
       setEditingHours(defaults);
@@ -2177,8 +2181,39 @@ export default function MySalonScreen() {
                         />
                       </View>
                     )}
+                    {!h.isClosed && (
+                      <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
+                        <Text style={styles.breakLabel}>Break (optional):</Text>
+                        <TextInput
+                          style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                          placeholder="e.g. 13:00"
+                          placeholderTextColor="#A89D8F"
+                          value={h.breakStart}
+                          onChangeText={(v) =>
+                            setEditingHours((prev) =>
+                              prev.map((d) => d.dayOfWeek === h.dayOfWeek ? { ...d, breakStart: v } : d)
+                            )
+                          }
+                        />
+                        <TextInput
+                          style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                          placeholder="e.g. 14:00"
+                          placeholderTextColor="#A89D8F"
+                          value={h.breakEnd}
+                          onChangeText={(v) =>
+                            setEditingHours((prev) =>
+                              prev.map((d) => d.dayOfWeek === h.dayOfWeek ? { ...d, breakEnd: v } : d)
+                            )
+                          }
+                        />
+                      </View>
+                    )}
                   </View>
                 ))}
+                <Text style={styles.slotHint}>
+                  Set a break (e.g. lunch) to block that window from bookings without closing
+                  the whole day. Leave both blank for no break.
+                </Text>
                 <Pressable
                   style={[styles.smallButton, savingHours && styles.buttonDisabled]}
                   onPress={() => handleSaveHours(salon.id)}
@@ -2651,6 +2686,11 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 6,
     marginBottom: 4,
+  },
+  breakLabel: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 12,
+    color: MUTED,
   },
   customerRow: {
     flexDirection: "row",
