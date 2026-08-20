@@ -472,6 +472,21 @@ export async function updateNotificationPreferences(
   return response.json();
 }
 
+export async function submitSupportTicket(
+  category: string,
+  message: string,
+  token: string
+): Promise<{ id: string }> {
+  const response = await fetch(`${BASE_URL}/support/tickets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ category, message }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "Could not submit your report");
+  return data;
+}
+
 export async function updateProfile(
   payload: { name?: string; phone?: string; currentPassword?: string; newPassword?: string },
   token: string

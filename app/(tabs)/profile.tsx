@@ -100,6 +100,10 @@ export default function ProfileScreen() {
               <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
             </Pressable>
           )}
+          <Pressable style={styles.row} onPress={() => router.push("/report-issue" as any)}>
+            <Text style={[styles.rowText, { color: colors.text }]}>🐞 Report an Issue</Text>
+            <Text style={[styles.rowArrow, { color: colors.muted }]}>›</Text>
+          </Pressable>
           <Pressable
             style={styles.row}
             onPress={() => router.push("/settings")}

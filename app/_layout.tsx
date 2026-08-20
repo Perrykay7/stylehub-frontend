@@ -150,6 +150,7 @@ function RootNavigator() {
         <Stack.Screen name="notification-settings" options={{ title: "Notification settings" }} />
         <Stack.Screen name="loyalty" options={{ title: "Loyalty Rewards" }} />
         <Stack.Screen name="favorites" options={{ title: "My Favorites" }} />
+        <Stack.Screen name="report-issue" options={{ title: "Report an Issue" }} />
         <Stack.Screen name="reverify" options={{ headerShown: false }} />
         <Stack.Screen name="owner-dashboard" options={{ title: "Dashboard" }} />
         <Stack.Screen name="professional-dashboard" options={{ title: "My Schedule" }} />
