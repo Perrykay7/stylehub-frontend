@@ -30,6 +30,36 @@ import {
     submitSalonReview,
 } from "../../api/client";
 
+// Opens the device's native maps app — Apple Maps on iOS, Google Maps on
+// Android — falling back to the Google Maps website if neither is
+// available (e.g. no maps app installed, or running somewhere unexpected).
+async function openDirections(salon: Salon) {
+  const hasCoords = salon.latitude != null && salon.longitude != null;
+  const textQuery = hasCoords ? `${salon.latitude},${salon.longitude}` : `${salon.name}, ${salon.address}`;
+  const label = encodeURIComponent(salon.name);
+
+  const nativeUrl = Platform.select({
+    ios: hasCoords
+      ? `maps://?ll=${salon.latitude},${salon.longitude}&q=${label}`
+      : `maps://?q=${encodeURIComponent(textQuery)}`,
+    android: hasCoords
+      ? `geo:${salon.latitude},${salon.longitude}?q=${salon.latitude},${salon.longitude}(${label})`
+      : `geo:0,0?q=${encodeURIComponent(textQuery)}`,
+  });
+
+  const webFallbackUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(textQuery)}`;
+
+  try {
+    if (nativeUrl && (await Linking.canOpenURL(nativeUrl))) {
+      await Linking.openURL(nativeUrl);
+      return;
+    }
+  } catch {
+    // fall through to the web fallback below
+  }
+  await Linking.openURL(webFallbackUrl);
+}
+
 export default function SalonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { token } = useAuth();
@@ -140,15 +170,7 @@ export default function SalonDetailScreen() {
               )}
               <Pressable
                 style={[styles.directionsButton, { borderColor: colors.border }]}
-                onPress={() => {
-                  const query =
-                    salon.latitude != null && salon.longitude != null
-                      ? `${salon.latitude},${salon.longitude}`
-                      : `${salon.name}, ${salon.address}`;
-                  Linking.openURL(
-                    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
-                  );
-                }}
+                onPress={() => openDirections(salon)}
               >
                 <Ionicons name="navigate-outline" size={14} color={colors.clay} />
                 <Text style={[styles.directionsButtonText, { color: colors.clay }]}>Directions</Text>
