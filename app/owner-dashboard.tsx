@@ -402,6 +402,20 @@ export default function OwnerDashboardScreen() {
                       <StatCard label="No-show Rate" value={`${Math.round(analytics.noShowRate * 100)}%`} sub={`${analytics.noShowCount} no-shows`} />
                     </View>
 
+                    {analytics.cancellationReasons.length > 0 && (
+                      <View style={[styles.listCard, { backgroundColor: colors.card, marginBottom: 20 }]}>
+                        {analytics.cancellationReasons.map((r, i) => (
+                          <View
+                            key={r.reason}
+                            style={[styles.listRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}
+                          >
+                            <Text style={[styles.listMain, { color: colors.text }]}>{r.reason}</Text>
+                            <Text style={[styles.listValue, { color: colors.clay }]}>{r.count}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Tips</Text>
                     <View style={styles.statsGrid}>
                       <StatCard

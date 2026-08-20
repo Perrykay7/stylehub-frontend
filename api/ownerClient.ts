@@ -97,6 +97,7 @@ export type SalonAnalytics = {
   revenueOverTime: { date: string; bookingCount: number; revenue: number }[];
   cancellationRate: number;
   cancelledCount: number;
+  cancellationReasons: { reason: string; count: number }[];
   noShowRate: number;
   noShowCount: number;
   perProfessional: { professionalId: string; name: string; bookingCount: number; revenue: number; tips: number; avgRating: number }[];

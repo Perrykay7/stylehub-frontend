@@ -339,10 +339,11 @@ export async function rateProfessional(
   return data;
 }
 
-export async function cancelBooking(bookingId: string, token: string) {
+export async function cancelBooking(bookingId: string, token: string, reason?: string) {
   const response = await fetch(`${BASE_URL}/bookings/${bookingId}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ reason }),
   });
   if (!response.ok) {
     throw new Error("Failed to cancel booking");

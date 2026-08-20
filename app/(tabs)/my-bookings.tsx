@@ -27,6 +27,14 @@ import {
   rateProfessional,
   WaitlistEntry,
 } from "../../api/client";
+const CANCEL_REASONS = [
+  "Schedule conflict",
+  "Changed my mind",
+  "Found a better price",
+  "Salon issue",
+  "Other",
+];
+
 function getAppointmentDateTime(booking: Booking) {
   return new Date(`${booking.date}T${booking.time}:00`);
 }
@@ -170,6 +178,10 @@ export default function MyBookingsScreen() {
   const [ratingComment, setRatingComment] = useState("");
   const [submittingRating, setSubmittingRating] = useState(false);
 
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
+  const [submittingCancel, setSubmittingCancel] = useState(false);
+
   function loadBookings() {
     if (!token) return;
     fetchBookings(token)
@@ -237,29 +249,22 @@ export default function MyBookingsScreen() {
   }
   
   function handleCancel(bookingId: string) {
-    Alert.alert(
-      "Cancel Booking",
-      "Are you sure you want to cancel this booking? This cannot be undone.",
-      [
-        { text: "Keep Booking", style: "cancel" },
-        {
-          text: "Cancel Booking",
-          style: "destructive",
-          onPress: async () => {
-            if (!token) return;
-            try {
-              await cancelBooking(bookingId, token);
-              setBookings((prev) => prev.filter((b) => b.id !== bookingId));
-            } catch (err: any) {
-              Alert.alert(
-                "Error",
-                err.message || "Could not cancel booking. Please try again."
-              );
-            }
-          },
-        },
-      ]
-    );
+    setCancellingBookingId(bookingId);
+    setCancelReason(null);
+  }
+
+  async function handleConfirmCancel() {
+    if (!token || !cancellingBookingId) return;
+    setSubmittingCancel(true);
+    try {
+      await cancelBooking(cancellingBookingId, token, cancelReason || undefined);
+      setBookings((prev) => prev.filter((b) => b.id !== cancellingBookingId));
+      setCancellingBookingId(null);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not cancel booking. Please try again.");
+    } finally {
+      setSubmittingCancel(false);
+    }
   }
 
   const now = Date.now();
@@ -379,6 +384,61 @@ export default function MyBookingsScreen() {
             </Pressable>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={!!cancellingBookingId}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancellingBookingId(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Cancel Booking</Text>
+            <Text style={[styles.cancelModalSubtitle, { color: colors.muted }]}>
+              Are you sure? This cannot be undone. Let us know why (optional) —
+              it helps the salon.
+            </Text>
+            <View style={styles.reasonChipsWrap}>
+              {CANCEL_REASONS.map((reason) => {
+                const isSelected = cancelReason === reason;
+                return (
+                  <Pressable
+                    key={reason}
+                    style={[
+                      styles.reasonChip,
+                      { borderColor: colors.border },
+                      isSelected && styles.reasonChipSelected,
+                    ]}
+                    onPress={() => setCancelReason(isSelected ? null : reason)}
+                  >
+                    <Text
+                      style={[
+                        styles.reasonChipText,
+                        { color: colors.text },
+                        isSelected && styles.reasonChipTextSelected,
+                      ]}
+                    >
+                      {reason}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable
+              style={[styles.submitRatingButton, { backgroundColor: RUST }]}
+              onPress={handleConfirmCancel}
+              disabled={submittingCancel}
+            >
+              <Text style={styles.submitRatingButtonText}>
+                {submittingCancel ? "Cancelling..." : "Cancel Booking"}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setCancellingBookingId(null)} disabled={submittingCancel}>
+              <Text style={styles.modalCancelText}>Keep Booking</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -539,6 +599,38 @@ const styles = StyleSheet.create({
     color: INK,
     marginBottom: 16,
     textAlign: "center",
+  },
+  cancelModalSubtitle: {
+    fontFamily: "Manrope_500Medium",
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: -8,
+    marginBottom: 16,
+    lineHeight: 19,
+  },
+  reasonChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
+    justifyContent: "center",
+  },
+  reasonChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  reasonChipSelected: {
+    backgroundColor: RUST,
+    borderColor: RUST,
+  },
+  reasonChipText: {
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 13,
+  },
+  reasonChipTextSelected: {
+    color: "#fff",
   },
   starsRow: {
     flexDirection: "row",
